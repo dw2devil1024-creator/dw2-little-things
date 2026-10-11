@@ -47,4 +47,4 @@
 #dw2-lt-settings .dw2-lt-version-note{margin:5px 0 14px;padding:0;font-family:'Noto Serif SC','Songti SC',serif!important;font-size:12px;font-weight:400;letter-spacing:.025em;line-height:1.65;color:rgba(218,220,224,.64)}
 
 /* v0.4.8 | align collapsed drawer heading to the other DW2 extensions */
-#dw2-lt-settings .inline-drawer-header .dw2-lt-heading{font-size:inherit!important;font-weight:400!important;letter-spacing:normal!important;line-height:inherit!important}
+#dw2-lt-settings .inline-drawer-header .dw2-lt-heading{font-family:'Noto Serif SC','Source Han Serif SC','Songti SC',serif!important;font-size:15px!important;font-weight:500!important;letter-spacing:.015em!important;line-height:1.45!important}
