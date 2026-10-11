@@ -25,3 +25,15 @@
 #dw2-lt-settings .dw2-lt-switch input{width:17px;height:17px}
 #dw2-lt-settings .dw2-lt-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;width:100%;margin:8px 0 0}
 #dw2-lt-settings .dw2-lt-actions button{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:100%;min-width:0;height:40px;padding:4px 3px;margin:0;border:1px solid #ffffff55;border-radius:7px;background:#ffffff15;color:inherit;font-size:clamp(10px,2.7vw,13px);font-weight:400;line-height:1.25;white-space:nowrap}
+/* v0.4.1 | Bookmark handle and frameless original icons */
+#dw2-lt-root{width:28px}
+#dw2-lt-btn{width:28px;height:45px;border-radius:0 9px 9px 0;border:1px solid rgba(255,255,255,.28);border-left:0;background:linear-gradient(110deg,rgba(226,237,246,.24),rgba(177,194,209,.36));box-shadow:1px 2px 10px rgba(20,35,51,.09),inset 0 1px rgba(255,255,255,.2);font-size:19px;letter-spacing:0}
+#dw2-lt-root[data-side="right"] #dw2-lt-btn{border-radius:9px 0 0 9px;border-left:1px solid rgba(255,255,255,.28);border-right:0}
+#dw2-lt-root[data-side="left"] #dw2-lt-btn{border-radius:0 9px 9px 0}
+#dw2-lt-root[data-side="left"] #dw2-lt-btn{padding-left:4px}
+#dw2-lt-root[data-side="right"] #dw2-lt-btn{padding-right:4px}
+#dw2-lt-tray{bottom:54px;width:52px;gap:12px;padding:12px 5px;border-radius:12px;background:linear-gradient(150deg,rgba(228,239,247,.12),rgba(164,184,204,.07));border:1px solid rgba(255,255,255,.17);box-shadow:0 4px 17px rgba(15,28,43,.07)}
+#dw2-lt-tray .dw2-lt-item{width:40px;height:40px;flex-basis:40px;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;outline:0}
+#dw2-lt-tray .dw2-lt-visual{width:40px;height:40px;border:0;background:transparent;overflow:visible;border-radius:0}
+#dw2-lt-tray .dw2-lt-visual>*{border-radius:inherit}
+#dw2-lt-tray .dw2-lt-remove{width:14px;height:14px;top:-6px;right:-5px}
