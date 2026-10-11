@@ -1,21 +1,24 @@
-/* DW2 · Little Things | Ice-mist edge dock | S.A. · DW2 */
-#dw2-lt-root{position:fixed;z-index:2147483000;color:#f8fbff;font-family:system-ui,-apple-system,sans-serif;pointer-events:none;transition:transform .24s cubic-bezier(.2,.8,.2,1);will-change:transform}
+/* DW2 · Little Things | FOLIO editorial edge dock | S.A. · DW2 */
+#dw2-lt-root{position:fixed;z-index:2147483000;width:28px;color:#f9f5f2;font-family:system-ui,-apple-system,sans-serif;pointer-events:none;transition:transform .23s cubic-bezier(.2,.8,.2,1);will-change:transform}
 #dw2-lt-root[data-dragging]{transition:none!important}
 #dw2-lt-root *{box-sizing:border-box}
-#dw2-lt-btn{pointer-events:auto;touch-action:none;display:grid;place-items:center;width:36px;height:36px;margin:0;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.38);background:linear-gradient(145deg,rgba(213,228,238,.67),rgba(156,178,196,.52));backdrop-filter:blur(18px) saturate(130%);-webkit-backdrop-filter:blur(18px) saturate(130%);box-shadow:0 2px 12px rgba(41,60,83,.13),inset 0 1px rgba(255,255,255,.44);color:#fff;font-size:23px;font-weight:300;line-height:1;cursor:pointer}
-#dw2-lt-btn.dw2-lt-ready{background:rgba(186,206,223,.88);box-shadow:0 0 0 7px rgba(231,240,250,.17)}
+#dw2-lt-btn{position:relative;pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center;width:28px;height:60px;margin:0;padding:6px 0;border:1px solid rgba(248,240,238,.34);border-left:0;border-radius:0 7px 7px 0;background:linear-gradient(110deg,rgba(246,238,235,.20),rgba(189,204,216,.16) 55%,rgba(239,224,222,.14));backdrop-filter:blur(22px) saturate(115%);-webkit-backdrop-filter:blur(22px) saturate(115%);box-shadow:inset 0 1px rgba(255,255,255,.23),1px 2px 9px rgba(23,24,31,.09);writing-mode:vertical-rl;text-orientation:mixed;font-family:Georgia,"Times New Roman",serif!important;font-style:italic;font-size:13px;font-weight:400;line-height:1;letter-spacing:2px;color:#fff9f7;text-shadow:0 0 6px rgba(255,249,245,.23);cursor:pointer}
+#dw2-lt-root[data-side="right"] #dw2-lt-btn{border-left:1px solid rgba(248,240,238,.34);border-right:0;border-radius:7px 0 0 7px}
+#dw2-lt-btn::after{content:"";position:absolute;inset:4px 4px 4px 3px;border:1px solid rgba(255,255,255,.12);border-left:0;border-radius:0 4px 4px 0;pointer-events:none}
+#dw2-lt-root[data-side="right"] #dw2-lt-btn::after{inset:4px 3px 4px 4px;border-left:1px solid rgba(255,255,255,.12);border-right:0;border-radius:4px 0 0 4px}
+#dw2-lt-btn.dw2-lt-ready{background:rgba(207,207,217,.44);box-shadow:0 0 0 6px rgba(240,230,234,.13)}
 #dw2-lt-btn.dw2-lt-pulse{animation:dw2pulse .4s ease}
-@keyframes dw2pulse{50%{scale:1.1}}
-#dw2-lt-tray{pointer-events:auto;position:absolute;bottom:45px;right:0;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:11px;width:57px;max-height:min(65dvh,460px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:15px 7px 12px;border-radius:17px;background:linear-gradient(160deg,rgba(229,240,249,.19),rgba(173,192,209,.12));border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(28px) saturate(120%);-webkit-backdrop-filter:blur(28px) saturate(120%);box-shadow:0 5px 22px rgba(32,51,72,.10),inset 0 1px rgba(255,255,255,.22)}
+@keyframes dw2pulse{50%{filter:brightness(1.3)}}
+#dw2-lt-tray{position:absolute;pointer-events:auto;bottom:76px;right:0;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:13px;width:54px;max-height:min(65dvh,460px);overflow-x:hidden;overflow-y:auto;scrollbar-width:none;padding:13px 6px 15px;border:1px solid rgba(255,255,255,.17);border-radius:13px;background:linear-gradient(160deg,rgba(238,235,234,.115),rgba(195,207,217,.075) 60%,rgba(224,214,214,.09));backdrop-filter:blur(28px) saturate(120%);-webkit-backdrop-filter:blur(28px) saturate(120%);box-shadow:inset 0 1px rgba(255,255,255,.19),0 5px 20px rgba(24,28,37,.075)}
 #dw2-lt-tray::-webkit-scrollbar{display:none}
 #dw2-lt-root[data-side="left"] #dw2-lt-tray{left:0;right:auto}
 #dw2-lt-root[data-side="right"] #dw2-lt-tray{right:0;left:auto}
 #dw2-lt-tray[hidden]{display:none!important}
-#dw2-lt-tray .dw2-lt-item{pointer-events:auto;position:relative;flex:0 0 40px;display:grid;place-items:center;width:40px;height:40px;margin:0;padding:0;overflow:visible;border-radius:50%;border:1px solid rgba(255,255,255,.33);background:rgba(235,243,249,.17);color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.18);cursor:pointer}
-#dw2-lt-tray .dw2-lt-visual{width:36px;height:36px;display:grid;place-items:center;overflow:hidden;border-radius:50%;pointer-events:none}
-#dw2-lt-tray .dw2-lt-visual>*{max-width:100%;max-height:100%;object-fit:cover;pointer-events:none}
-#dw2-lt-tray .dw2-lt-remove{position:absolute;z-index:2;top:-6px;right:-6px;display:grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid rgba(255,255,255,.48);background:rgba(100,119,136,.88);color:white;font-size:12px;line-height:1}
-#dw2-lt-tray .dw2-lt-hint{writing-mode:vertical-rl;white-space:nowrap;font-size:11px;letter-spacing:.08em;opacity:.8;padding:6px 0;color:#fff}
+#dw2-lt-tray .dw2-lt-item{position:relative;flex:0 0 40px;display:grid;place-items:center;width:40px;height:40px;margin:0;padding:0;overflow:visible;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:0;cursor:pointer}
+#dw2-lt-tray .dw2-lt-visual{width:40px;height:40px;display:grid;place-items:center;overflow:visible;border:0;border-radius:0;background:transparent;pointer-events:none}
+#dw2-lt-tray .dw2-lt-visual>*{max-width:100%;max-height:100%;object-fit:contain;pointer-events:none}
+#dw2-lt-tray .dw2-lt-remove{position:absolute;z-index:2;right:-5px;top:-6px;display:grid;place-items:center;width:15px;height:15px;border:1px solid rgba(255,255,255,.47);border-radius:50%;background:rgba(102,113,127,.85);color:#fff;font-size:12px;line-height:1}
+#dw2-lt-tray .dw2-lt-hint{writing-mode:vertical-rl;white-space:nowrap;font-size:11px;letter-spacing:.08em;opacity:.8;padding:6px 0}
 #dw2-lt-settings .inline-drawer-header{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
 #dw2-lt-settings .dw2-lt-heading{display:flex;flex:1 1 auto;min-width:0;flex-direction:column;gap:2px}
 #dw2-lt-settings .dw2-lt-credit{display:block;font-size:10px;font-weight:400;line-height:1.45;letter-spacing:.035em;opacity:.56}
@@ -25,74 +28,3 @@
 #dw2-lt-settings .dw2-lt-switch input{width:17px;height:17px}
 #dw2-lt-settings .dw2-lt-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;width:100%;margin:8px 0 0}
 #dw2-lt-settings .dw2-lt-actions button{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:100%;min-width:0;height:40px;padding:4px 3px;margin:0;border:1px solid #ffffff55;border-radius:7px;background:#ffffff15;color:inherit;font-size:clamp(10px,2.7vw,13px);font-weight:400;line-height:1.25;white-space:nowrap}
-/* v0.4.1 | Bookmark handle and frameless original icons */
-#dw2-lt-root{width:28px}
-#dw2-lt-btn{width:28px;height:45px;border-radius:0 9px 9px 0;border:1px solid rgba(255,255,255,.28);border-left:0;background:linear-gradient(110deg,rgba(226,237,246,.24),rgba(177,194,209,.36));box-shadow:1px 2px 10px rgba(20,35,51,.09),inset 0 1px rgba(255,255,255,.2);font-size:19px;letter-spacing:0}
-#dw2-lt-root[data-side="right"] #dw2-lt-btn{border-radius:9px 0 0 9px;border-left:1px solid rgba(255,255,255,.28);border-right:0}
-#dw2-lt-root[data-side="left"] #dw2-lt-btn{border-radius:0 9px 9px 0}
-#dw2-lt-root[data-side="left"] #dw2-lt-btn{padding-left:4px}
-#dw2-lt-root[data-side="right"] #dw2-lt-btn{padding-right:4px}
-#dw2-lt-tray{bottom:54px;width:52px;gap:12px;padding:12px 5px;border-radius:12px;background:linear-gradient(150deg,rgba(228,239,247,.12),rgba(164,184,204,.07));border:1px solid rgba(255,255,255,.17);box-shadow:0 4px 17px rgba(15,28,43,.07)}
-#dw2-lt-tray .dw2-lt-item{width:40px;height:40px;flex-basis:40px;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;outline:0}
-#dw2-lt-tray .dw2-lt-visual{width:40px;height:40px;border:0;background:transparent;overflow:visible;border-radius:0}
-#dw2-lt-tray .dw2-lt-visual>*{border-radius:inherit}
-#dw2-lt-tray .dw2-lt-remove{width:14px;height:14px;top:-6px;right:-5px}
-
-/* v0.4.2 | editorial bookmark: understated INS typography */
-#dw2-lt-root{width:27px}
-#dw2-lt-btn{
-  position:relative;
-  width:27px;
-  height:57px;
-  padding:7px 0!important;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  writing-mode:vertical-rl;
-  text-orientation:mixed;
-  font-family:Georgia,"Times New Roman",serif!important;
-  font-style:italic;
-  font-weight:400;
-  font-size:12px;
-  letter-spacing:1.5px;
-  line-height:1;
-  color:rgba(255,250,248,.94);
-  background:linear-gradient(115deg,rgba(245,242,238,.19) 0%,rgba(204,213,221,.23) 54%,rgba(235,230,227,.13) 100%);
-  border:1px solid rgba(255,255,255,.34);
-  border-left:0;
-  border-radius:0 7px 7px 0;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),1px 2px 9px rgba(19,24,35,.10);
-  backdrop-filter:blur(22px) saturate(112%);
-  -webkit-backdrop-filter:blur(22px) saturate(112%);
-  transition:background .2s ease,box-shadow .2s ease;
-}
-#dw2-lt-root[data-side="right"] #dw2-lt-btn{
-  border-left:1px solid rgba(255,255,255,.34);
-  border-right:0;
-  border-radius:7px 0 0 7px;
-}
-#dw2-lt-btn::after{
-  content:"";
-  position:absolute;
-  inset:4px 4px 4px 3px;
-  border:1px solid rgba(255,255,255,.12);
-  border-left:0;
-  border-radius:0 4px 4px 0;
-  pointer-events:none;
-}
-#dw2-lt-root[data-side="right"] #dw2-lt-btn::after{
-  inset:4px 3px 4px 4px;
-  border:1px solid rgba(255,255,255,.12);
-  border-right:0;
-  border-radius:4px 0 0 4px;
-}
-#dw2-lt-root.dw2-lt-open #dw2-lt-btn{
-  background:linear-gradient(130deg,rgba(244,238,236,.27),rgba(195,211,225,.25));
-  box-shadow:inset 0 1px rgba(255,255,255,.27),1px 3px 12px rgba(19,24,35,.11);
-}
-#dw2-lt-tray{
-  background:linear-gradient(155deg,rgba(237,234,234,.11),rgba(202,214,224,.08));
-  border:1px solid rgba(255,255,255,.17);
-  border-radius:10px;
-  box-shadow:inset 0 1px rgba(255,255,255,.14),0 5px 18px rgba(20,26,34,.07);
-}
