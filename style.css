@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,500;1,6..96,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&family=Playfair+Display:wght@400;500;600&display=swap');
 /* DW2 · Little Things | editorial edge dock | S.A. · DW2 */
 #dw2-lt-root{position:fixed;z-index:2147483000;width:28px;color:#f9f5f2;font-family:system-ui,-apple-system,sans-serif;pointer-events:none;transition:transform .23s cubic-bezier(.2,.8,.2,1);will-change:transform}
 #dw2-lt-root[data-dragging]{transition:none!important}
@@ -35,3 +36,9 @@
 #dw2-lt-root[data-expand="down"] #dw2-lt-tray{top:76px;bottom:auto}
 #dw2-lt-root[data-expand="up"] #dw2-lt-tray{top:auto;bottom:76px}
 #dw2-lt-tray{max-height:310px;overscroll-behavior:contain}
+
+/* v0.4.6 | shared DW2 extension settings typography */
+#dw2-lt-settings{font-family:'Noto Serif SC','Source Han Serif SC','Noto Serif CJK SC','Songti SC','STSong',serif!important;-webkit-font-smoothing:antialiased}
+#dw2-lt-settings .dw2-lt-heading{font-family:'Playfair Display','Noto Serif SC',Georgia,serif!important;font-size:17px;font-weight:500;letter-spacing:.015em;line-height:1.35}
+#dw2-lt-settings .dw2-lt-credit{font-family:'Playfair Display',Georgia,serif!important;font-size:11px;letter-spacing:.045em;opacity:.62;line-height:1.6}
+#dw2-lt-settings .inline-drawer-content,#dw2-lt-settings .dw2-lt-switch,#dw2-lt-settings .dw2-lt-actions button{font-family:'Noto Serif SC','Source Han Serif SC','Songti SC',serif!important}
