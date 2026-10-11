@@ -6,7 +6,7 @@
   "js": "index.js",
   "css": "style.css",
   "author": "S.A. · DW2",
-  "version": "0.3.2-beta.1",
+  "version": "0.3.3-beta.1",
   "minimum_client_version": "1.16.0",
   "auto_update": false
 }
