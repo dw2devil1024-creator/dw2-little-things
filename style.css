@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,500;1,6..96,600&display=swap');
 /* DW2 · Little Things | editorial edge dock | S.A. · DW2 */
 #dw2-lt-root{position:fixed;z-index:2147483000;width:28px;color:#f9f5f2;font-family:system-ui,-apple-system,sans-serif;pointer-events:none;transition:transform .23s cubic-bezier(.2,.8,.2,1);will-change:transform}
 #dw2-lt-root[data-dragging]{transition:none!important}
@@ -31,7 +31,7 @@
 #dw2-lt-settings .dw2-lt-actions button{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:100%;min-width:0;height:40px;padding:4px 3px;margin:0;border:1px solid #ffffff55;border-radius:7px;background:#ffffff15;color:inherit;font-size:clamp(10px,2.7vw,13px);font-weight:400;line-height:1.25;white-space:nowrap}
 
 /* v0.4.4 | adaptive tray expansion, cross-platform editorial font */
-#dw2-lt-btn{font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif!important;font-size:15px;letter-spacing:1.5px}
+#dw2-lt-btn{font-family:'Bodoni Moda','Didot','Times New Roman',serif!important;font-style:italic!important;font-weight:500!important;font-size:15px;letter-spacing:.45px;line-height:1;text-shadow:0 1px 5px rgba(255,250,248,.20);font-variant-ligatures:common-ligatures;-webkit-font-smoothing:antialiased}
 #dw2-lt-root[data-expand="down"] #dw2-lt-tray{top:76px;bottom:auto}
 #dw2-lt-root[data-expand="up"] #dw2-lt-tray{top:auto;bottom:76px}
 #dw2-lt-tray{max-height:310px;overscroll-behavior:contain}
