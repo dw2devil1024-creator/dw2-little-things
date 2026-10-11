@@ -48,3 +48,8 @@
 
 /* v0.4.8 | align collapsed drawer heading to the other DW2 extensions */
 #dw2-lt-settings .inline-drawer-header .dw2-lt-heading{font-family:'Noto Serif SC','Source Han Serif SC','Songti SC',serif!important;font-size:15px!important;font-weight:500!important;letter-spacing:.015em!important;line-height:1.45!important}
+
+/* v0.5.0 | native magic-wand menu toggle; no floating extra button */
+#extensionsMenu #dw2-lt-magic-entry{display:flex;align-items:center;gap:12px;cursor:pointer;min-height:34px;box-sizing:border-box}
+#extensionsMenu #dw2-lt-magic-entry .dw2-lt-magic-label{font:inherit;color:inherit;white-space:normal}
+#extensionsMenu #dw2-lt-magic-entry>i{width:24px;text-align:center;flex:none;opacity:.8}
