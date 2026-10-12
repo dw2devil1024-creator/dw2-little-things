@@ -75,19 +75,20 @@
 
 /* Night is the neutral default; day and night only tint this panel. */
 #dw2-lt-bg-panel {
-  --panel-fg: rgba(248, 243, 243, .96);
-  --panel-muted: rgba(244, 236, 237, .60);
-  --panel-line: rgba(245, 235, 241, .15);
-  --panel-fill: rgba(255, 255, 255, .045);
-  --panel-fill-strong: rgba(255, 255, 255, .12);
-  --panel-faint-border: rgba(255, 255, 255, .14);
-  --panel-outline: rgba(255, 255, 255, .20);
-  --panel-accent: #cfbec4;
-  --panel-bg-a: rgba(25, 27, 34, .69);
-  --panel-bg-b: rgba(32, 31, 38, .59);
-  --panel-bg-c: rgba(31, 29, 33, .65);
-  --panel-shadow: rgba(0, 0, 0, .23);
-  --panel-specular: rgba(255, 255, 255, .14);
+  /* Same cool-smoke / warm-charcoal family as Preset Console CLEAR MIST.
+     Night is slightly deeper; day uses the exact source material below. */
+  --panel-fg: rgba(251, 249, 246, .97);
+  --panel-muted: rgba(232, 235, 239, .68);
+  --panel-line: rgba(202, 225, 236, .17);
+  --panel-fill: rgba(255, 255, 255, .04);
+  --panel-fill-strong: rgba(255, 255, 255, .105);
+  --panel-faint-border: rgba(226, 245, 252, .18);
+  --panel-outline: rgba(202, 225, 236, .20);
+  --panel-accent: rgba(204, 229, 241, .90);
+  --panel-bg-a: rgba(61, 70, 79, .64);
+  --panel-bg-b: rgba(38, 37, 43, .77);
+  --panel-shadow: rgba(0, 0, 0, .25);
+  --panel-specular: rgba(255, 255, 255, .035);
   position: fixed !important;
   top: 50% !important;
   right: max(14px, env(safe-area-inset-right)) !important;
@@ -104,56 +105,56 @@
   border-radius: 17px !important;
   border: 1px solid var(--panel-outline) !important;
   color: var(--panel-fg) !important;
-  background: linear-gradient(154deg,
-    var(--panel-bg-a) 0%,
-    var(--panel-bg-b) 55%,
-    var(--panel-bg-c) 100%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
-  backdrop-filter: blur(20px) saturate(120%) !important;
+  background: linear-gradient(155deg, var(--panel-bg-a), var(--panel-bg-b)) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(114%) !important;
+  backdrop-filter: blur(18px) saturate(114%) !important;
   box-shadow:
-    0 18px 46px var(--panel-shadow),
-    inset 0 1px 0 var(--panel-specular),
-    inset 0 -1px 0 rgba(255, 255, 255, .04) !important;
+    0 16px 38px var(--panel-shadow),
+    inset 0 1px 0 var(--panel-specular) !important;
   font-family: "Noto Serif SC", "Songti SC", "PingFang SC", serif !important;
   -webkit-font-smoothing: antialiased;
   scrollbar-width: none;
 }
 #dw2-lt-bg-panel::-webkit-scrollbar { display: none; }
 
-/* Warm, transparent day glass: no opaque white slab. */
+/* Preset Console v0.4.7 DAY / CLEAR MIST: same actual glass material.
+   Source: linear-gradient(155deg, rgba(81,96,105,.48), rgba(48,44,47,.59)),
+   border rgba(202,225,236,.22), backdrop blur(16px) saturate(114%).
+   Color and control tokens scoped only to the background tuner panel. */
 #dw2-lt-bg-panel[data-theme="day"] {
-  --panel-fg: rgba(57, 51, 55, .95);
-  --panel-muted: rgba(70, 61, 65, .59);
-  --panel-line: rgba(105, 89, 98, .18);
-  --panel-fill: rgba(255, 255, 255, .075);
-  --panel-fill-strong: rgba(255, 255, 255, .31);
-  --panel-faint-border: rgba(122, 103, 111, .13);
-  --panel-outline: rgba(255, 255, 255, .49);
-  --panel-accent: #a49399;
-  --panel-bg-a: rgba(251, 246, 243, .58);
-  --panel-bg-b: rgba(224, 225, 230, .46);
-  --panel-bg-c: rgba(244, 234, 234, .52);
-  --panel-shadow: rgba(45, 35, 42, .17);
-  --panel-specular: rgba(255, 255, 255, .57);
+  --panel-fg: rgba(251, 249, 246, .97);
+  --panel-muted: rgba(232, 235, 239, .72);
+  --panel-line: rgba(202, 225, 236, .22);
+  --panel-fill: rgba(255, 255, 255, .055);
+  --panel-fill-strong: rgba(184, 220, 234, .14);
+  --panel-faint-border: rgba(226, 245, 252, .23);
+  --panel-outline: rgba(202, 225, 236, .22);
+  --panel-accent: rgba(211, 235, 246, .92);
+  --panel-shadow: rgba(0, 0, 0, .20);
+  --panel-specular: rgba(255, 255, 255, .035);
+  color: var(--panel-fg) !important;
+  background: linear-gradient(155deg, rgba(81, 96, 105, .48), rgba(48, 44, 47, .59)) !important;
+  border: 1px solid rgba(202, 225, 236, .22) !important;
+  border-top-color: rgba(232, 246, 252, .32) !important;
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, .20),
+    inset 0 1px 0 rgba(255, 255, 255, .035) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(114%) !important;
+  backdrop-filter: blur(16px) saturate(114%) !important;
+  text-shadow: 0 1px 2px rgba(9, 17, 24, .28);
 }
-
 #dw2-lt-bg-panel::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: .75;
-  background:
-    radial-gradient(ellipse 90% 50% at 8% 0%,
-      rgba(255, 255, 255, .12),
-      transparent 76%),
-    linear-gradient(125deg,
-      transparent 10%,
-      rgba(255, 255, 255, .025) 50%,
-      transparent 90%);
+  opacity: .45;
+  background: radial-gradient(ellipse 90% 45% at 8% 0%,
+    rgba(255, 255, 255, .065),
+    transparent 80%);
 }
-#dw2-lt-bg-panel[data-theme="day"]::before { opacity: .9; }
+#dw2-lt-bg-panel[data-theme="day"]::before { opacity: .36; }
 #dw2-lt-bg-panel > * { position: relative; z-index: 1; }
 
 /* Airy magazine-style header */
@@ -336,11 +337,11 @@
   --dw2-lt-thumb-shadow: rgba(0, 0, 0, .22);
 }
 #dw2-lt-bg-panel[data-theme="day"] {
-  --dw2-lt-track-unfilled: rgba(91, 75, 84, .21);
-  --dw2-lt-track-filled: rgba(144, 111, 125, .74);
-  --dw2-lt-thumb-core: #f9f4f1;
-  --dw2-lt-thumb-edge: rgba(128, 100, 112, .42);
-  --dw2-lt-thumb-shadow: rgba(71, 51, 63, .16);
+  --dw2-lt-track-unfilled: rgba(229, 240, 246, .22);
+  --dw2-lt-track-filled: rgba(211, 235, 246, .85);
+  --dw2-lt-thumb-core: #f0f3f5;
+  --dw2-lt-thumb-edge: rgba(235, 247, 252, .67);
+  --dw2-lt-thumb-shadow: rgba(6, 18, 25, .26);
 }
 #dw2-lt-bg-panel input[type="range"] {
   display: block !important;
