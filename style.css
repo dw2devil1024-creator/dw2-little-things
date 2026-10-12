@@ -56,339 +56,384 @@
 #extensionsMenu #dw2-lt-magic-entry>i{width:24px;text-align:center;flex:none;opacity:.8}
 
 
-/* DW2 · Background Tuner / Lite v2.13 native module */
+/* DW2 · Little Things | Background Tuner / Ice-mist editorial glass | v0.6.2
+   Visual-only refinements to the native Lite v2.13 panel.
+   Keep native range inputs, all existing IDs and effect logic unchanged.
+   Only #dw2-lt-bg-panel is styled; its background effect overlay remains isolated. */
 
-                #dw2-lt-bg-overlay {
-                    position: fixed !important;
-                    inset: 0 !important;
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    pointer-events: none !important;
-                    background: rgba(0,0,0,.50);
-                    backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
-                    -webkit-backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
-                    transition: background-color .22s ease !important;
-                }
+#dw2-lt-bg-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+  background: rgba(0, 0, 0, .5);
+  backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
+  -webkit-backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
+  transition: background-color .22s ease !important;
+}
 
-                /* ========== PANEL SHELL ========== */
-                #dw2-lt-bg-panel {
-                    --panel-fg: rgba(248,247,244,.94);
-                    --panel-muted: rgba(248,247,244,.46);
-                    --panel-line: rgba(255,255,255,.10);
-                    --panel-fill: rgba(255,255,255,.06);
-                    --panel-fill-strong: rgba(255,255,255,.10);
-                    --panel-bg-a: rgba(16,17,21,.72);
-                    --panel-bg-b: rgba(21,20,25,.50);
-                    --panel-shadow: rgba(0,0,0,.42);
-                    --panel-accent: rgba(255,255,255,.90);
+/* Night is the neutral default; day and night only tint this panel. */
+#dw2-lt-bg-panel {
+  --panel-fg: rgba(248, 243, 243, .96);
+  --panel-muted: rgba(244, 236, 237, .60);
+  --panel-line: rgba(245, 235, 241, .15);
+  --panel-fill: rgba(255, 255, 255, .045);
+  --panel-fill-strong: rgba(255, 255, 255, .12);
+  --panel-faint-border: rgba(255, 255, 255, .14);
+  --panel-outline: rgba(255, 255, 255, .20);
+  --panel-accent: #cfbec4;
+  --panel-bg-a: rgba(25, 27, 34, .69);
+  --panel-bg-b: rgba(32, 31, 38, .59);
+  --panel-bg-c: rgba(31, 29, 33, .65);
+  --panel-shadow: rgba(0, 0, 0, .23);
+  --panel-specular: rgba(255, 255, 255, .14);
+  position: fixed !important;
+  top: 50% !important;
+  right: max(14px, env(safe-area-inset-right)) !important;
+  transform: translateY(-50%) !important;
+  z-index: 2147483001 !important;
+  width: min(264px, calc(100vw - 24px)) !important;
+  max-height: min(90dvh, calc(100vh - 24px)) !important;
+  padding: 16px 16px 15px !important;
+  box-sizing: border-box !important;
+  display: none;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 17px !important;
+  border: 1px solid var(--panel-outline) !important;
+  color: var(--panel-fg) !important;
+  background: linear-gradient(154deg,
+    var(--panel-bg-a) 0%,
+    var(--panel-bg-b) 55%,
+    var(--panel-bg-c) 100%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  box-shadow:
+    0 18px 46px var(--panel-shadow),
+    inset 0 1px 0 var(--panel-specular),
+    inset 0 -1px 0 rgba(255, 255, 255, .04) !important;
+  font-family: "Noto Serif SC", "Songti SC", "PingFang SC", serif !important;
+  -webkit-font-smoothing: antialiased;
+  scrollbar-width: none;
+}
+#dw2-lt-bg-panel::-webkit-scrollbar { display: none; }
 
-                    position: fixed !important;
-                    top: 50% !important;
-                    right: max(18px, env(safe-area-inset-right)) !important;
-                    transform: translateY(-50%) !important;
+/* Warm, transparent day glass: no opaque white slab. */
+#dw2-lt-bg-panel[data-theme="day"] {
+  --panel-fg: rgba(57, 51, 55, .95);
+  --panel-muted: rgba(70, 61, 65, .59);
+  --panel-line: rgba(105, 89, 98, .18);
+  --panel-fill: rgba(255, 255, 255, .075);
+  --panel-fill-strong: rgba(255, 255, 255, .31);
+  --panel-faint-border: rgba(122, 103, 111, .13);
+  --panel-outline: rgba(255, 255, 255, .49);
+  --panel-accent: #a49399;
+  --panel-bg-a: rgba(251, 246, 243, .58);
+  --panel-bg-b: rgba(224, 225, 230, .46);
+  --panel-bg-c: rgba(244, 234, 234, .52);
+  --panel-shadow: rgba(45, 35, 42, .17);
+  --panel-specular: rgba(255, 255, 255, .57);
+}
 
-                    z-index: 2147483001 !important;
-                    width: min(248px, calc(100vw - 24px)) !important;
-                    padding: 14px 14px 13px !important;
-                    box-sizing: border-box !important;
+#dw2-lt-bg-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .75;
+  background:
+    radial-gradient(ellipse 90% 50% at 8% 0%,
+      rgba(255, 255, 255, .12),
+      transparent 76%),
+    linear-gradient(125deg,
+      transparent 10%,
+      rgba(255, 255, 255, .025) 50%,
+      transparent 90%);
+}
+#dw2-lt-bg-panel[data-theme="day"]::before { opacity: .9; }
+#dw2-lt-bg-panel > * { position: relative; z-index: 1; }
 
-                    display: none;
-                    flex-direction: column;
+/* Airy magazine-style header */
+#dw2-lt-bg-panel .dw2-lt-bg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  margin-bottom: 9px;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-title-wrap { min-width: 0; }
+#dw2-lt-bg-panel .dw2-lt-bg-kicker {
+  display: block;
+  color: var(--panel-muted);
+  margin-bottom: 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: .16em;
+  line-height: 1.25;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-title {
+  display: block;
+  color: var(--panel-fg);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: .085em;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-theme-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--panel-faint-border);
+  border-radius: 9px;
+  background: var(--panel-fill);
+}
+#dw2-lt-bg-panel .dw2-lt-bg-theme-btn {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-width: 27px;
+  height: 26px;
+  margin: 0 !important;
+  padding: 0 7px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--panel-muted) !important;
+  font-family: inherit !important;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1 !important;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-theme-btn.is-active {
+  background: var(--panel-fill-strong) !important;
+  color: var(--panel-fg) !important;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-close {
+  display: grid !important;
+  place-items: center;
+  flex: 0 0 29px;
+  width: 29px;
+  height: 30px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--panel-faint-border) !important;
+  border-radius: 9px !important;
+  outline-offset: 2px;
+  background: var(--panel-fill) !important;
+  box-shadow: none !important;
+  color: var(--panel-muted) !important;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease, border-color .18s ease;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-close svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-close:hover,
+#dw2-lt-bg-panel .dw2-lt-bg-close:focus-visible {
+  color: var(--panel-fg) !important;
+  background: var(--panel-fill-strong) !important;
+  border-color: var(--panel-line) !important;
+}
 
-                    overflow: hidden;
-                    border-radius: 20px !important;
-                    border: 1px solid var(--panel-line) !important;
-                    color: var(--panel-fg) !important;
+/* Thin, shortened separator strokes replace solid horizontal bars. */
+#dw2-lt-bg-panel .dw2-lt-bg-control,
+#dw2-lt-bg-panel .dw2-lt-bg-presets,
+#dw2-lt-bg-panel .dw2-lt-bg-footer {
+  position: relative;
+  border-top: 0 !important;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-control::before,
+#dw2-lt-bg-panel .dw2-lt-bg-presets::before,
+#dw2-lt-bg-panel .dw2-lt-bg-footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 5px;
+  left: 5px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--panel-line) 12%, var(--panel-line) 88%, transparent);
+}
+#dw2-lt-bg-panel .dw2-lt-bg-control {
+  padding: 13px 1px 11px;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-name {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .025em;
+  color: var(--panel-fg);
+}
+#dw2-lt-bg-panel .dw2-lt-bg-value {
+  margin-left: 5px;
+  color: var(--panel-fg);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-reset {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 35px;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--panel-faint-border);
+  border-radius: 7px;
+  background: var(--panel-fill);
+  color: var(--panel-muted);
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-reset:hover {
+  background: var(--panel-fill-strong);
+  color: var(--panel-fg);
+}
 
-                    background:
-                        linear-gradient(160deg, var(--panel-bg-a), var(--panel-bg-b))
-                        !important;
+/* Native range stays native: protect the TT/iOS slider hit area. */
+#dw2-lt-bg-panel input[type="range"] {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: 26px;
+  padding: 0 !important;
+  margin: 0 !important;
+  accent-color: var(--panel-accent) !important;
+  cursor: pointer;
+}
+#dw2-lt-bg-panel input[type="range"]:focus-visible {
+  outline: 1px solid var(--panel-accent);
+  outline-offset: 2px;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1px;
+  color: var(--panel-muted);
+  font-size: 8px;
+  line-height: 1.35;
+  letter-spacing: .04em;
+}
 
-                    backdrop-filter: blur(24px) saturate(125%) !important;
-                    -webkit-backdrop-filter: blur(24px) saturate(125%) !important;
+/* Small editorial preset chips instead of white plastic capsules. */
+#dw2-lt-bg-panel .dw2-lt-bg-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 13px 1px 12px;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-preset {
+  min-height: 30px;
+  margin: 0 !important;
+  padding: 0 6px !important;
+  border: 1px solid var(--panel-faint-border) !important;
+  border-radius: 8px !important;
+  background: var(--panel-fill) !important;
+  box-shadow: none !important;
+  color: var(--panel-muted) !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  letter-spacing: .045em;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-preset:hover,
+#dw2-lt-bg-panel .dw2-lt-bg-preset.is-active {
+  background: var(--panel-fill-strong) !important;
+  border-color: var(--panel-line) !important;
+  color: var(--panel-fg) !important;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-preset:active { transform: scale(.985); }
 
-                    box-shadow:
-                        0 18px 44px var(--panel-shadow),
-                        inset 0 1px 0 rgba(255,255,255,.06)
-                        !important;
-
-                    font-family:
-                        "Noto Serif SC",
-                        "Songti SC",
-                        "PingFang SC",
-                        serif !important;
-                }
-
-                /* 日间面板，只改变面板本身 */
-                #dw2-lt-bg-panel[data-theme="day"] {
-                    --panel-fg: rgba(52,48,48,.92);
-                    --panel-muted: rgba(52,48,48,.45);
-                    --panel-line: rgba(95,84,84,.12);
-                    --panel-fill: rgba(255,255,255,.40);
-                    --panel-fill-strong: rgba(255,255,255,.64);
-                    --panel-bg-a: rgba(249,247,244,.84);
-                    --panel-bg-b: rgba(236,231,229,.68);
-                    --panel-shadow: rgba(58,48,48,.18);
-                    --panel-accent: rgba(62,56,56,.90);
-                }
-
-                #dw2-lt-bg-panel::before {
-                    content: "";
-                    position: absolute;
-                    inset: 0;
-                    pointer-events: none;
-                    background:
-                        radial-gradient(
-                            circle at 16% 0%,
-                            rgba(255,255,255,.09),
-                            transparent 34%
-                        );
-                    opacity: .72;
-                }
-
-                #dw2-lt-bg-panel > * {
-                    position: relative;
-                    z-index: 1;
-                }
-
-                /* ========== HEADER ========== */
-                #dw2-lt-bg-panel .dw2-lt-bg-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 10px;
-                    margin-bottom: 13px;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-title-wrap {
-                    min-width: 0;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-kicker {
-                    display: block;
-                    margin-bottom: 2px;
-                    color: var(--panel-muted);
-                    font-size: 7px;
-                    font-weight: 500;
-                    letter-spacing: .22em;
-                    text-transform: uppercase;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-title {
-                    display: block;
-                    color: var(--panel-fg);
-                    font-size: 14px;
-                    font-weight: 650;
-                    letter-spacing: .06em;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-head-actions {
-                    display: flex;
-                    align-items: center;
-                    gap: 7px;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-theme-switch {
-                    display: flex;
-                    align-items: center;
-                    gap: 2px;
-                    padding: 2px;
-                    border: 1px solid var(--panel-line);
-                    border-radius: 999px;
-                    background: var(--panel-fill);
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-theme-btn {
-                    min-width: 25px;
-                    height: 23px;
-                    padding: 0 7px;
-                    border: 0 !important;
-                    border-radius: 999px;
-                    background: transparent !important;
-                    color: var(--panel-muted) !important;
-                    font-size: 10px;
-                    line-height: 23px;
-                    text-align: center;
-                    cursor: pointer;
-                    box-shadow: none !important;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-theme-btn.is-active {
-                    color: var(--panel-fg) !important;
-                    background: var(--panel-fill-strong) !important;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-close {
-                    display: grid;
-                    place-items: center;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 50%;
-                    color: var(--panel-muted);
-                    font-size: 17px;
-                    line-height: 1;
-                    cursor: pointer;
-                    transition: color .18s ease, background .18s ease;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-close:hover {
-                    color: var(--panel-fg);
-                    background: var(--panel-fill);
-                }
-
-                /* ========== CONTROLS ========== */
-                #dw2-lt-bg-panel .dw2-lt-bg-control {
-                    padding: 11px 0 10px;
-                    border-top: 1px solid var(--panel-line);
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-control:first-of-type {
-                    border-top: 0;
-                    padding-top: 2px;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-label {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 8px;
-                    margin-bottom: 7px;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-name {
-                    color: var(--panel-fg);
-                    font-size: 11px;
-                    letter-spacing: .04em;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-value {
-                    margin-left: 3px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    letter-spacing: .02em;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-reset {
-                    padding: 3px 7px;
-                    border: 1px solid var(--panel-line);
-                    border-radius: 999px;
-                    background: var(--panel-fill);
-                    color: var(--panel-muted);
-                    font-size: 8px;
-                    letter-spacing: .05em;
-                    cursor: pointer;
-                    transition:
-                        color .18s ease,
-                        background .18s ease;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-reset:hover {
-                    color: var(--panel-fg);
-                    background: var(--panel-fill-strong);
-                }
-
-                /*
-                 * 继续用已经验证可拖动的原生 range。
-                 * 不自绘轨道，不接管 pointer/touch。
-                 */
-                #dw2-lt-bg-panel input[type="range"] {
-                    width: 100%;
-                    margin: 0 !important;
-                    cursor: pointer;
-                    accent-color: var(--panel-accent);
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-hint {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 2px 1px 0;
-                    color: var(--panel-muted);
-                    font-size: 8px;
-                    letter-spacing: .04em;
-                }
-
-                /* ========== PRESETS ========== */
-                #dw2-lt-bg-panel .dw2-lt-bg-presets {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 6px;
-                    padding: 10px 0;
-                    border-top: 1px solid var(--panel-line);
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-preset {
-                    min-height: 28px;
-                    padding: 0 7px;
-                    border: 1px solid var(--panel-line) !important;
-                    border-radius: 999px;
-                    background: var(--panel-fill) !important;
-                    color: var(--panel-muted) !important;
-                    font-family: inherit !important;
-                    font-size: 8px;
-                    letter-spacing: .05em;
-                    cursor: pointer;
-                    box-shadow: none !important;
-                    transition:
-                        color .18s ease,
-                        background .18s ease,
-                        transform .18s ease;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-preset:hover,
-                #dw2-lt-bg-panel .dw2-lt-bg-preset.is-active {
-                    color: var(--panel-fg) !important;
-                    background: var(--panel-fill-strong) !important;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-preset:active {
-                    transform: scale(.98);
-                }
-
-                /* ========== FOOTER ACTIONS ========== */
-                #dw2-lt-bg-panel .dw2-lt-bg-footer {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 7px;
-                    padding-top: 10px;
-                    border-top: 1px solid var(--panel-line);
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-action {
-                    min-height: 31px;
-                    padding: 0 9px;
-                    border: 1px solid var(--panel-line) !important;
-                    border-radius: 10px;
-                    background: var(--panel-fill) !important;
-                    color: var(--panel-muted) !important;
-                    font-family: inherit !important;
-                    font-size: 9px;
-                    letter-spacing: .06em;
-                    cursor: pointer;
-                    box-shadow: none !important;
-                    transition:
-                        color .18s ease,
-                        background .18s ease,
-                        transform .18s ease;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-action:hover,
-                #dw2-lt-bg-panel .dw2-lt-bg-action.is-active {
-                    color: var(--panel-fg) !important;
-                    background: var(--panel-fill-strong) !important;
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-action:active {
-                    transform: scale(.98);
-                }
-
-                #dw2-lt-bg-panel .dw2-lt-bg-memory {
-                    margin-top: 8px;
-                    color: var(--panel-muted);
-                    font-size: 7px;
-                    letter-spacing: .08em;
-                    text-align: center;
-                }
-            
+/* Lighter footer actions; give the text, not the surfaces, priority. */
+#dw2-lt-bg-panel .dw2-lt-bg-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 12px 1px 0;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-action {
+  box-sizing: border-box;
+  min-height: 33px;
+  margin: 0 !important;
+  padding: 0 6px !important;
+  border: 1px solid var(--panel-faint-border) !important;
+  border-radius: 9px !important;
+  background: var(--panel-fill) !important;
+  box-shadow: none !important;
+  color: var(--panel-fg) !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  letter-spacing: .025em;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-action:hover,
+#dw2-lt-bg-panel .dw2-lt-bg-action.is-active {
+  background: var(--panel-fill-strong) !important;
+  border-color: var(--panel-line) !important;
+}
+#dw2-lt-bg-panel .dw2-lt-bg-action:active { transform: scale(.985); }
+#dw2-lt-bg-panel .dw2-lt-bg-memory {
+  margin-top: 9px;
+  color: var(--panel-muted);
+  font-size: 8px;
+  letter-spacing: .035em;
+  line-height: 1.5;
+  text-align: center;
+}
+@media (max-width: 360px) {
+  #dw2-lt-bg-panel {
+    right: max(10px, env(safe-area-inset-right)) !important;
+    width: min(264px, calc(100vw - 20px)) !important;
+    padding: 14px 13px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #dw2-lt-bg-panel .dw2-lt-bg-close,
+  #dw2-lt-bg-panel .dw2-lt-bg-action,
+  #dw2-lt-bg-panel .dw2-lt-bg-preset {
+    transition: none !important;
+  }
+}
 
 /* Integrated tool entry, strictly scoped to Little Things tray/settings. */
 #dw2-lt-tray .dw2-lt-tool{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;margin:0;padding:0;border:1px solid rgba(247,244,245,.22)!important;border-radius:12px;background:linear-gradient(135deg,rgba(245,238,237,.17),rgba(190,210,219,.11))!important;box-shadow:inset 0 1px rgba(255,255,255,.12)!important;color:#f4f4f2;cursor:pointer;pointer-events:auto}
