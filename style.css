@@ -53,3 +53,346 @@
 #extensionsMenu #dw2-lt-magic-entry{display:flex;align-items:center;gap:12px;cursor:pointer;min-height:34px;box-sizing:border-box}
 #extensionsMenu #dw2-lt-magic-entry .dw2-lt-magic-label{font:inherit;color:inherit;white-space:normal}
 #extensionsMenu #dw2-lt-magic-entry>i{width:24px;text-align:center;flex:none;opacity:.8}
+
+
+/* DW2 · Background Tuner / Lite v2.13 native module */
+
+                #dw2-lt-bg-overlay {
+                    position: fixed !important;
+                    inset: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    pointer-events: none !important;
+                    background: rgba(0,0,0,.50);
+                    backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
+                    -webkit-backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
+                    transition: background-color .22s ease !important;
+                }
+
+                /* ========== PANEL SHELL ========== */
+                #dw2-lt-bg-panel {
+                    --panel-fg: rgba(248,247,244,.94);
+                    --panel-muted: rgba(248,247,244,.46);
+                    --panel-line: rgba(255,255,255,.10);
+                    --panel-fill: rgba(255,255,255,.06);
+                    --panel-fill-strong: rgba(255,255,255,.10);
+                    --panel-bg-a: rgba(16,17,21,.72);
+                    --panel-bg-b: rgba(21,20,25,.50);
+                    --panel-shadow: rgba(0,0,0,.42);
+                    --panel-accent: rgba(255,255,255,.90);
+
+                    position: fixed !important;
+                    top: 50% !important;
+                    right: max(18px, env(safe-area-inset-right)) !important;
+                    transform: translateY(-50%) !important;
+
+                    z-index: 2147483001 !important;
+                    width: min(248px, calc(100vw - 24px)) !important;
+                    padding: 14px 14px 13px !important;
+                    box-sizing: border-box !important;
+
+                    display: none;
+                    flex-direction: column;
+
+                    overflow: hidden;
+                    border-radius: 20px !important;
+                    border: 1px solid var(--panel-line) !important;
+                    color: var(--panel-fg) !important;
+
+                    background:
+                        linear-gradient(160deg, var(--panel-bg-a), var(--panel-bg-b))
+                        !important;
+
+                    backdrop-filter: blur(24px) saturate(125%) !important;
+                    -webkit-backdrop-filter: blur(24px) saturate(125%) !important;
+
+                    box-shadow:
+                        0 18px 44px var(--panel-shadow),
+                        inset 0 1px 0 rgba(255,255,255,.06)
+                        !important;
+
+                    font-family:
+                        "Noto Serif SC",
+                        "Songti SC",
+                        "PingFang SC",
+                        serif !important;
+                }
+
+                /* 日间面板，只改变面板本身 */
+                #dw2-lt-bg-panel[data-theme="day"] {
+                    --panel-fg: rgba(52,48,48,.92);
+                    --panel-muted: rgba(52,48,48,.45);
+                    --panel-line: rgba(95,84,84,.12);
+                    --panel-fill: rgba(255,255,255,.40);
+                    --panel-fill-strong: rgba(255,255,255,.64);
+                    --panel-bg-a: rgba(249,247,244,.84);
+                    --panel-bg-b: rgba(236,231,229,.68);
+                    --panel-shadow: rgba(58,48,48,.18);
+                    --panel-accent: rgba(62,56,56,.90);
+                }
+
+                #dw2-lt-bg-panel::before {
+                    content: "";
+                    position: absolute;
+                    inset: 0;
+                    pointer-events: none;
+                    background:
+                        radial-gradient(
+                            circle at 16% 0%,
+                            rgba(255,255,255,.09),
+                            transparent 34%
+                        );
+                    opacity: .72;
+                }
+
+                #dw2-lt-bg-panel > * {
+                    position: relative;
+                    z-index: 1;
+                }
+
+                /* ========== HEADER ========== */
+                #dw2-lt-bg-panel .dw2-lt-bg-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 10px;
+                    margin-bottom: 13px;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-title-wrap {
+                    min-width: 0;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-kicker {
+                    display: block;
+                    margin-bottom: 2px;
+                    color: var(--panel-muted);
+                    font-size: 7px;
+                    font-weight: 500;
+                    letter-spacing: .22em;
+                    text-transform: uppercase;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-title {
+                    display: block;
+                    color: var(--panel-fg);
+                    font-size: 14px;
+                    font-weight: 650;
+                    letter-spacing: .06em;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-head-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 7px;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-theme-switch {
+                    display: flex;
+                    align-items: center;
+                    gap: 2px;
+                    padding: 2px;
+                    border: 1px solid var(--panel-line);
+                    border-radius: 999px;
+                    background: var(--panel-fill);
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-theme-btn {
+                    min-width: 25px;
+                    height: 23px;
+                    padding: 0 7px;
+                    border: 0 !important;
+                    border-radius: 999px;
+                    background: transparent !important;
+                    color: var(--panel-muted) !important;
+                    font-size: 10px;
+                    line-height: 23px;
+                    text-align: center;
+                    cursor: pointer;
+                    box-shadow: none !important;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-theme-btn.is-active {
+                    color: var(--panel-fg) !important;
+                    background: var(--panel-fill-strong) !important;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-close {
+                    display: grid;
+                    place-items: center;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    color: var(--panel-muted);
+                    font-size: 17px;
+                    line-height: 1;
+                    cursor: pointer;
+                    transition: color .18s ease, background .18s ease;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-close:hover {
+                    color: var(--panel-fg);
+                    background: var(--panel-fill);
+                }
+
+                /* ========== CONTROLS ========== */
+                #dw2-lt-bg-panel .dw2-lt-bg-control {
+                    padding: 11px 0 10px;
+                    border-top: 1px solid var(--panel-line);
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-control:first-of-type {
+                    border-top: 0;
+                    padding-top: 2px;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-label {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 8px;
+                    margin-bottom: 7px;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-name {
+                    color: var(--panel-fg);
+                    font-size: 11px;
+                    letter-spacing: .04em;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-value {
+                    margin-left: 3px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    letter-spacing: .02em;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-reset {
+                    padding: 3px 7px;
+                    border: 1px solid var(--panel-line);
+                    border-radius: 999px;
+                    background: var(--panel-fill);
+                    color: var(--panel-muted);
+                    font-size: 8px;
+                    letter-spacing: .05em;
+                    cursor: pointer;
+                    transition:
+                        color .18s ease,
+                        background .18s ease;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-reset:hover {
+                    color: var(--panel-fg);
+                    background: var(--panel-fill-strong);
+                }
+
+                /*
+                 * 继续用已经验证可拖动的原生 range。
+                 * 不自绘轨道，不接管 pointer/touch。
+                 */
+                #dw2-lt-bg-panel input[type="range"] {
+                    width: 100%;
+                    margin: 0 !important;
+                    cursor: pointer;
+                    accent-color: var(--panel-accent);
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-hint {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 2px 1px 0;
+                    color: var(--panel-muted);
+                    font-size: 8px;
+                    letter-spacing: .04em;
+                }
+
+                /* ========== PRESETS ========== */
+                #dw2-lt-bg-panel .dw2-lt-bg-presets {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 6px;
+                    padding: 10px 0;
+                    border-top: 1px solid var(--panel-line);
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-preset {
+                    min-height: 28px;
+                    padding: 0 7px;
+                    border: 1px solid var(--panel-line) !important;
+                    border-radius: 999px;
+                    background: var(--panel-fill) !important;
+                    color: var(--panel-muted) !important;
+                    font-family: inherit !important;
+                    font-size: 8px;
+                    letter-spacing: .05em;
+                    cursor: pointer;
+                    box-shadow: none !important;
+                    transition:
+                        color .18s ease,
+                        background .18s ease,
+                        transform .18s ease;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-preset:hover,
+                #dw2-lt-bg-panel .dw2-lt-bg-preset.is-active {
+                    color: var(--panel-fg) !important;
+                    background: var(--panel-fill-strong) !important;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-preset:active {
+                    transform: scale(.98);
+                }
+
+                /* ========== FOOTER ACTIONS ========== */
+                #dw2-lt-bg-panel .dw2-lt-bg-footer {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 7px;
+                    padding-top: 10px;
+                    border-top: 1px solid var(--panel-line);
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-action {
+                    min-height: 31px;
+                    padding: 0 9px;
+                    border: 1px solid var(--panel-line) !important;
+                    border-radius: 10px;
+                    background: var(--panel-fill) !important;
+                    color: var(--panel-muted) !important;
+                    font-family: inherit !important;
+                    font-size: 9px;
+                    letter-spacing: .06em;
+                    cursor: pointer;
+                    box-shadow: none !important;
+                    transition:
+                        color .18s ease,
+                        background .18s ease,
+                        transform .18s ease;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-action:hover,
+                #dw2-lt-bg-panel .dw2-lt-bg-action.is-active {
+                    color: var(--panel-fg) !important;
+                    background: var(--panel-fill-strong) !important;
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-action:active {
+                    transform: scale(.98);
+                }
+
+                #dw2-lt-bg-panel .dw2-lt-bg-memory {
+                    margin-top: 8px;
+                    color: var(--panel-muted);
+                    font-size: 7px;
+                    letter-spacing: .08em;
+                    text-align: center;
+                }
+            
+
+/* Integrated tool entry, strictly scoped to Little Things tray/settings. */
+#dw2-lt-tray .dw2-lt-tool{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;margin:0;padding:0;border:1px solid rgba(247,244,245,.22)!important;border-radius:12px;background:linear-gradient(135deg,rgba(245,238,237,.17),rgba(190,210,219,.11))!important;box-shadow:inset 0 1px rgba(255,255,255,.12)!important;color:#f4f4f2;cursor:pointer;pointer-events:auto}
+#dw2-lt-tray .dw2-lt-tool svg{pointer-events:none;opacity:.9}
+#dw2-lt-tray .dw2-lt-tool:active{transform:scale(.96)}
+#dw2-lt-settings .dw2-lt-module-box{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0 8px;border-top:1px solid rgba(255,255,255,.1)}
+#dw2-lt-settings .dw2-lt-module-box .dw2-lt-switch{padding:6px 0}
+#dw2-lt-settings .dw2-lt-bg-open{flex:none;height:34px;margin:0;padding:0 9px;border:1px solid rgba(255,255,255,.26);border-radius:7px;background:rgba(255,255,255,.07);color:inherit;font-family:'Noto Serif SC','Songti SC',serif;font-size:11px;cursor:pointer}
