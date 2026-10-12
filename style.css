@@ -325,20 +325,100 @@
   color: var(--panel-fg);
 }
 
-/* Native range stays native: protect the TT/iOS slider hit area. */
+/* Fine editorial sliders, still native range inputs.
+   Keep original input events and full ~32px finger target.
+   Explicit WebKit track/thumb resets prevent thick TT/iOS system pills. */
+#dw2-lt-bg-panel {
+  --dw2-lt-track-unfilled: rgba(233, 228, 231, .20);
+  --dw2-lt-track-filled: rgba(225, 198, 206, .91);
+  --dw2-lt-thumb-core: #f1e4e7;
+  --dw2-lt-thumb-edge: rgba(255, 255, 255, .62);
+  --dw2-lt-thumb-shadow: rgba(0, 0, 0, .22);
+}
+#dw2-lt-bg-panel[data-theme="day"] {
+  --dw2-lt-track-unfilled: rgba(91, 75, 84, .21);
+  --dw2-lt-track-filled: rgba(144, 111, 125, .74);
+  --dw2-lt-thumb-core: #f9f4f1;
+  --dw2-lt-thumb-edge: rgba(128, 100, 112, .42);
+  --dw2-lt-thumb-shadow: rgba(71, 51, 63, .16);
+}
 #dw2-lt-bg-panel input[type="range"] {
-  box-sizing: border-box;
-  display: block;
-  width: 100%;
-  height: 26px;
-  padding: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  position: relative;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 32px !important;
+  min-height: 0 !important;
+  max-height: 32px !important;
   margin: 0 !important;
-  accent-color: var(--panel-accent) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: none;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  accent-color: var(--dw2-lt-track-filled);
   cursor: pointer;
 }
+#dw2-lt-bg-panel input[type="range"]::-webkit-slider-runnable-track {
+  box-sizing: border-box;
+  width: 100%;
+  height: 3px !important;
+  min-height: 3px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  background: linear-gradient(
+    90deg,
+    var(--dw2-lt-track-filled) 0%,
+    var(--dw2-lt-track-filled) var(--dw2-lt-range-percent, 50%),
+    var(--dw2-lt-track-unfilled) var(--dw2-lt-range-percent, 50%),
+    var(--dw2-lt-track-unfilled) 100%
+  ) !important;
+}
+#dw2-lt-bg-panel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  box-sizing: border-box !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  padding: 0 !important;
+  margin: -6.5px 0 0 !important;
+  border: 2px solid var(--dw2-lt-thumb-edge) !important;
+  border-radius: 50% !important;
+  background: var(--dw2-lt-thumb-core) !important;
+  box-shadow: 0 1px 5px var(--dw2-lt-thumb-shadow), 0 0 0 3px rgba(237, 220, 225, .07) !important;
+  cursor: pointer;
+}
+#dw2-lt-bg-panel input[type="range"]::-moz-range-track {
+  height: 3px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--dw2-lt-track-unfilled) !important;
+}
+#dw2-lt-bg-panel input[type="range"]::-moz-range-progress {
+  height: 3px !important;
+  border-radius: 999px !important;
+  background: var(--dw2-lt-track-filled) !important;
+}
+#dw2-lt-bg-panel input[type="range"]::-moz-range-thumb {
+  box-sizing: border-box !important;
+  width: 16px !important;
+  height: 16px !important;
+  border: 2px solid var(--dw2-lt-thumb-edge) !important;
+  border-radius: 50% !important;
+  background: var(--dw2-lt-thumb-core) !important;
+  box-shadow: 0 1px 5px var(--dw2-lt-thumb-shadow) !important;
+}
 #dw2-lt-bg-panel input[type="range"]:focus-visible {
-  outline: 1px solid var(--panel-accent);
-  outline-offset: 2px;
+  outline: 1px solid var(--dw2-lt-track-filled) !important;
+  outline-offset: 1px;
 }
 #dw2-lt-bg-panel .dw2-lt-bg-hint {
   display: flex;
