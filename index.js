@@ -1,10 +1,206 @@
 (()=>{'use strict';
 const KEY='dw2-lt-v2',OLD='dw2-lt-v1',ID='dw2-lt-root';
-let state={items:[],x:18,y:110,side:'right',visible:true,minimized:false},root,ball,tray,observer,scanTimer,drag=null,open=false;
+let state={items:[],x:18,y:110,side:'right',visible:true,minimized:false,bgTunerEnabled:false},root,ball,tray,observer,scanTimer,drag=null,open=false;
 const hidden=new Map(),tracked=new WeakSet();
 try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)state={...state,...s};else{const old=JSON.parse(localStorage.getItem(OLD)||'null');if(old)state.x=old.x??18,state.y=old.y??110}}catch{}
 if(state.wandHidden===true)state.minimized=true;delete state.wandHidden;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch{}};
+
+// ============================================================
+// DW2 · Little Things / Background Tuner
+// Self-contained module adapted from the user's proven Lite v2.13.
+// No TavernHelper, jQuery, injected script, or global touch listeners.
+// ============================================================
+const background=(()=>{
+ const STORE='st_bg_lite_v212',THEME_KEY='st_bg_lite_v212_panel_theme';
+ const PANEL='dw2-lt-bg-panel',OVERLAY='dw2-lt-bg-overlay';
+ let active=false,watch=0,currentKey='',preview=false,panel=null;
+ let values={bright:50,clarity:100},theme='night';
+ const originalFilters=new Map();
+ try{theme=localStorage.getItem(THEME_KEY)==='day'?'day':'night'}catch{}
+ const byId=id=>document.getElementById(id);
+ const clamp=n=>Math.max(0,Math.min(100,Number.isFinite(Number(n))?Number(n):50));
+ const layers=()=>[byId('bg1'),byId('bg2')].filter(Boolean);
+ function imageKey(){
+  const items=layers().map((el,index)=>{
+   const computed=getComputedStyle(el);
+   return {image:computed.backgroundImage||'none',opacity:Number(computed.opacity)||0,index};
+  });
+  if(!items.length)return '__default__';
+  items.sort((a,b)=>b.opacity-a.opacity || Number(b.image!=='none')-Number(a.image!=='none') || b.index-a.index);
+  return items[0].image||'__default__';
+ }
+ function load(){
+  values={bright:50,clarity:100};
+  try{
+   const data=JSON.parse(localStorage.getItem(STORE)||'{}')[currentKey]||{};
+   if(data.bright!==undefined)values.bright=clamp(data.bright);
+   if(data.clarity!==undefined)values.clarity=clamp(data.clarity);
+  }catch{}
+ }
+ function persist(){
+  try{
+   const all=JSON.parse(localStorage.getItem(STORE)||'{}');
+   all[currentKey]={bright:values.bright,clarity:values.clarity};
+   localStorage.setItem(STORE,JSON.stringify(all));
+  }catch{}
+ }
+ function ensureOverlay(){
+  const anchor=byId('bg2')||byId('bg1');
+  if(!anchor)return null;
+  let node=byId(OVERLAY);
+  if(!node){node=document.createElement('div');node.id=OVERLAY}
+  if(node.previousElementSibling!==anchor)anchor.after(node);
+  return node;
+ }
+ function keepNeutralFilter(){
+  for(const el of layers()){
+   if(!originalFilters.has(el))originalFilters.set(el,{
+    value:el.style.getPropertyValue('filter'),priority:el.style.getPropertyPriority('filter')
+   });
+   el.style.setProperty('filter','blur(0px)');
+  }
+ }
+ function updateControls(){
+  if(!panel)return;
+  for(const [key,id] of [['bright','bright'],['clarity','clarity']]){
+   const slider=byId('dw2-lt-bg-'+id);
+   const number=byId('dw2-lt-bg-val-'+id);
+   if(slider)slider.value=String(values[key]);
+   if(number)number.textContent=String(values[key]);
+  }
+ }
+ function apply(){
+  if(!active)return;
+  const layer=ensureOverlay();
+  if(layer){
+   const alpha=preview?0:(100-values.bright)/100;
+   const blur=preview?0:(100-values.clarity)*0.15;
+   layer.style.setProperty('background-color','rgba(0, 0, 0, '+alpha+')');
+   layer.style.setProperty('--dw2-lt-bg-backdrop',blur>0?'blur('+blur+'px)':'none');
+  }
+  keepNeutralFilter();
+  updateControls();
+ }
+ function resetIndicators(){
+  if(!panel)return;
+  byId('dw2-lt-bg-preview')?.classList.remove('is-active');
+  panel.querySelectorAll('.dw2-lt-bg-preset').forEach(el=>el.classList.remove('is-active'));
+ }
+ function readNewImage(){
+  const next=imageKey();
+  if(next!==currentKey){
+   currentKey=next;
+   preview=false;load();resetIndicators();
+   byId(OVERLAY)?.remove();
+   apply();
+  }else{
+   const anchor=byId('bg2')||byId('bg1');
+   if(anchor&&(!byId(OVERLAY)||byId(OVERLAY).previousElementSibling!==anchor))apply();
+   else if(layers().some(el=>!originalFilters.has(el)))apply();
+  }
+ }
+ function legacyRunning(){
+  return !!(byId('st-bg-lite-v212-style')||byId('st-bg-lite-v212-overlay')||byId('st-bg-lite-v212-panel'));
+ }
+ function start(){
+  if(active)return true;
+  if(legacyRunning()){
+   notify('检测到旧版 🌙背景调节脚本仍在运行，请先禁用旧脚本、刷新酒馆，再启用内置背景调节。','warning');
+   return false;
+  }
+  active=true;
+  currentKey=imageKey();
+  load();
+  apply();
+  watch=window.setInterval(()=>{if(active&&document.visibilityState!=='hidden')readNewImage()},1500);
+  return true;
+ }
+ function stop(){
+  active=false;
+  if(watch){clearInterval(watch);watch=0}
+  panel?.remove();panel=null;
+  byId(OVERLAY)?.remove();
+  for(const [el,record] of originalFilters){
+   if(el.isConnected&&el.style.getPropertyValue('filter')==='blur(0px)'&&!el.style.getPropertyPriority('filter')){
+    if(record.value)el.style.setProperty('filter',record.value,record.priority);
+    else el.style.removeProperty('filter');
+   }
+  }
+  originalFilters.clear();
+  preview=false;
+ }
+ function saveEnabled(flag){
+  state.bgTunerEnabled=!!flag;save();
+  const checkbox=byId('dw2-lt-bg-enabled');
+  if(checkbox)checkbox.checked=!!flag;
+ }
+ function enable(){
+  if(start()){saveEnabled(true);return true}
+  saveEnabled(false);return false;
+ }
+ function disable(){stop();saveEnabled(false)}
+ function setTheme(value){
+  theme=value==='day'?'day':'night';
+  if(panel){
+   panel.dataset.theme=theme;
+   panel.querySelectorAll('.dw2-lt-bg-theme-btn').forEach(b=>b.classList.toggle('is-active',b.dataset.panelTheme===theme));
+  }
+  try{localStorage.setItem(THEME_KEY,theme)}catch{}
+ }
+ function makePanel(){
+  if(panel?.isConnected)return panel;
+  const template=document.createElement('template');
+  template.innerHTML="\n            <div id=\"dw2-lt-bg-panel\" data-theme=\"night\">\n                <div class=\"dw2-lt-bg-header\">\n                    <div class=\"dw2-lt-bg-title-wrap\">\n                        <span class=\"dw2-lt-bg-kicker\">\n                            BACKGROUND / ADJUST\n                        </span>\n                        <span class=\"dw2-lt-bg-title\">\n                            背景调节\n                        </span>\n                    </div>\n\n                    <div class=\"dw2-lt-bg-head-actions\">\n                        <div\n                            class=\"dw2-lt-bg-theme-switch\"\n                            aria-label=\"面板日夜模式\"\n                        >\n                            <button\n                                type=\"button\"\n                                class=\"dw2-lt-bg-theme-btn\"\n                                data-panel-theme=\"day\"\n                                title=\"日间面板\"\n                            >☼</button>\n\n                            <button\n                                type=\"button\"\n                                class=\"dw2-lt-bg-theme-btn\"\n                                data-panel-theme=\"night\"\n                                title=\"夜间面板\"\n                            >☾</button>\n                        </div>\n\n                        <span\n                            id=\"dw2-lt-bg-close\"\n                            class=\"dw2-lt-bg-close\"\n                        >×</span>\n                    </div>\n                </div>\n\n                <div class=\"dw2-lt-bg-control\">\n                    <div class=\"dw2-lt-bg-label\">\n                        <span class=\"dw2-lt-bg-name\">\n                            亮度调节\n                            <span\n                                class=\"dw2-lt-bg-value\"\n                                id=\"dw2-lt-bg-val-bright\"\n                            >50</span>\n                        </span>\n\n                        <span\n                            class=\"dw2-lt-bg-reset\"\n                            id=\"dw2-lt-bg-reset-bright\"\n                        >恢复</span>\n                    </div>\n\n                    <input\n                        type=\"range\"\n                        id=\"dw2-lt-bg-bright\"\n                        min=\"0\"\n                        max=\"100\"\n                        step=\"1\"\n                        value=\"50\"\n                    >\n\n                    <div class=\"dw2-lt-bg-hint\">\n                        <span>暗</span>\n                        <span>50</span>\n                        <span>亮</span>\n                    </div>\n                </div>\n\n                <div class=\"dw2-lt-bg-control\">\n                    <div class=\"dw2-lt-bg-label\">\n                        <span class=\"dw2-lt-bg-name\">\n                            清晰度调节\n                            <span\n                                class=\"dw2-lt-bg-value\"\n                                id=\"dw2-lt-bg-val-clarity\"\n                            >100</span>\n                        </span>\n\n                        <span\n                            class=\"dw2-lt-bg-reset\"\n                            id=\"dw2-lt-bg-reset-clarity\"\n                        >恢复</span>\n                    </div>\n\n                    <input\n                        type=\"range\"\n                        id=\"dw2-lt-bg-clarity\"\n                        min=\"0\"\n                        max=\"100\"\n                        step=\"1\"\n                        value=\"100\"\n                    >\n\n                    <div class=\"dw2-lt-bg-hint\">\n                        <span>柔</span>\n                        <span>50</span>\n                        <span>清</span>\n                    </div>\n                </div>\n\n                <div class=\"dw2-lt-bg-presets\">\n                    <button\n                        type=\"button\"\n                        class=\"dw2-lt-bg-preset\"\n                        data-preset=\"original\"\n                    >原图</button>\n\n                    <button\n                        type=\"button\"\n                        class=\"dw2-lt-bg-preset\"\n                        data-preset=\"night\"\n                    >夜间</button>\n\n                    <button\n                        type=\"button\"\n                        class=\"dw2-lt-bg-preset\"\n                        data-preset=\"soft\"\n                    >柔和</button>\n                </div>\n\n                <div class=\"dw2-lt-bg-footer\">\n                    <button\n                        type=\"button\"\n                        class=\"dw2-lt-bg-action\"\n                        id=\"dw2-lt-bg-preview\"\n                    >临时原图</button>\n\n                    <button\n                        type=\"button\"\n                        class=\"dw2-lt-bg-action\"\n                        id=\"dw2-lt-bg-reset-all\"\n                    >全部恢复</button>\n                </div>\n\n                <div class=\"dw2-lt-bg-memory\">\n                    当前背景独立记忆 · 自动保存\n                </div>\n            </div>\n        ";
+  panel=template.content.firstElementChild;
+  panel.dataset.theme=theme;
+  document.body.append(panel);
+  setTheme(theme);
+  updateControls();
+  panel.addEventListener('input',event=>{
+   if(!event.target.matches('input[type="range"]'))return;
+   preview=false;resetIndicators();
+   values.bright=clamp(byId('dw2-lt-bg-bright')?.value);
+   values.clarity=clamp(byId('dw2-lt-bg-clarity')?.value);
+   apply();persist();
+  });
+  panel.addEventListener('click',event=>{
+   const target=event.target.closest('button,.dw2-lt-bg-close,.dw2-lt-bg-reset');
+   if(!target||!panel.contains(target))return;
+   const id=target.id;
+   if(id==='dw2-lt-bg-close'){panel.style.display='none';return}
+   if(id==='dw2-lt-bg-reset-bright'){
+    preview=false;resetIndicators();values.bright=50;
+   }else if(id==='dw2-lt-bg-reset-clarity'){
+    preview=false;resetIndicators();values.clarity=100;
+   }else if(id==='dw2-lt-bg-reset-all'){
+    preview=false;resetIndicators();values={bright:50,clarity:100};
+   }else if(id==='dw2-lt-bg-preview'){
+    preview=!preview;resetIndicators();target.classList.toggle('is-active',preview);
+    apply();return;
+   }else if(target.dataset.preset){
+    preview=false;resetIndicators();
+    if(target.dataset.preset==='original')values={bright:100,clarity:100};
+    else if(target.dataset.preset==='night')values={bright:38,clarity:100};
+    else if(target.dataset.preset==='soft')values={bright:60,clarity:78};
+    target.classList.add('is-active');
+   }else if(target.dataset.panelTheme){
+    setTheme(target.dataset.panelTheme);return;
+   }else return;
+   apply();persist();
+  });
+  return panel;
+ }
+ function openPanel(){
+  if(!active&&!enable())return false;
+  if(!panel?.isConnected)makePanel();
+  panel.style.display='flex';
+  return true;
+ }
+ function init(){if(state.bgTunerEnabled&&!start())saveEnabled(false)}
+ return {init,enable,disable,open:openPanel,stop,isActive:()=>active};
+})();
+
 const cssEscape=s=>window.CSS?.escape?CSS.escape(s):s.replace(/[^a-zA-Z0-9_-]/g,c=>'\\'+c);
 const query=s=>{try{return document.querySelector(s)}catch{return null}};
 const valid=el=>el&&el.isConnected&&!root?.contains(el)&&el!==document.body&&el!==document.documentElement;
@@ -25,7 +221,11 @@ function deepTarget(el){if(!el)return null;const r=rect(el);for(const group of [
 function activate(item,el){const preset=el.matches?.('#dw2-preset-console .dw2pc-launcher');if(preset){try{el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,detail:0}))}catch{}return}const saved=hidden.has(el),record=hidden.get(el);record?.observer?.disconnect();const previousVisibility=el.style.getPropertyValue('visibility'),visibilityPriority=el.style.getPropertyPriority('visibility');try{if(saved){show(el);el.style.setProperty('visibility','hidden','important');void el.offsetWidth}const presetLauncher=el.matches?.('#dw2-preset-console .dw2pc-launcher')?el:el.querySelector?.('#dw2-preset-console .dw2pc-launcher')||((el.closest?.('#dw2-preset-console'))?el.closest('#dw2-preset-console').querySelector('.dw2pc-launcher'):null);const action=presetLauncher||clickTarget(item,el),target=presetLauncher||deepTarget(action)||action,r=rect(action);const x=r.left+r.width/2,y=r.top+r.height/2,base={bubbles:true,cancelable:true,clientX:x,clientY:y,screenX:x,screenY:y,button:0,buttons:1};let prevented=false;const fire=e=>{target.dispatchEvent(e);if(e.defaultPrevented)prevented=true};if(presetLauncher){const p={...base,pointerId:987654,pointerType:'touch',isPrimary:true};target.dispatchEvent(new PointerEvent('pointerdown',p));target.dispatchEvent(new PointerEvent('pointerup',{...p,buttons:0}));return}const touchCapable=navigator.maxTouchPoints>0||'ontouchstart'in window;let touch=null;if(touchCapable&&typeof Touch==='function'&&typeof TouchEvent==='function'){try{touch=new Touch({identifier:1,target,clientX:x,clientY:y,pageX:x,pageY:y,screenX:x,screenY:y})}catch{}}if(typeof PointerEvent==='function')fire(new PointerEvent('pointerdown',{...base,pointerId:1,pointerType:touch?'touch':'mouse',isPrimary:true}));if(touch)fire(new TouchEvent('touchstart',{bubbles:true,cancelable:true,touches:[touch],targetTouches:[touch],changedTouches:[touch]}));if(typeof PointerEvent==='function')fire(new PointerEvent('pointerup',{...base,pointerId:1,pointerType:touch?'touch':'mouse',isPrimary:true,buttons:0}));if(touch){fire(new TouchEvent('touchend',{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[touch]}));if(!prevented)target.click()}else{fire(new MouseEvent('mousedown',base));fire(new MouseEvent('mouseup',{...base,buttons:0}));target.click()}}catch{try{clickTarget(item,el).click()}catch{}}finally{setTimeout(()=>{if(previousVisibility)el.style.setProperty('visibility',previousVisibility,visibilityPriority);else el.style.removeProperty('visibility');if(saved&&valid(el))hide(el)},150)}}
 function restoreAll(){for(const el of [...hidden.keys()])show(el)}
 function visual(el){const wrap=document.createElement('span');wrap.className='dw2-lt-visual';if(!el)return wrap;const wasHidden=hidden.has(el);if(wasHidden)show(el);const clone=el.cloneNode(true);clone.querySelectorAll?.('[id]').forEach(n=>n.removeAttribute('id'));clone.removeAttribute('id');clone.querySelectorAll?.('script,iframe,video,audio').forEach(n=>n.remove());const original=[el,...el.querySelectorAll('*')],copies=[clone,...clone.querySelectorAll('*')];original.slice(0,70).forEach((n,i)=>{const c=copies[i];if(!c)return;const s=getComputedStyle(n);for(const prop of ['background','background-color','background-image','background-size','background-position','border','border-radius','box-shadow','color','font-size','font-family','font-weight','opacity','object-fit'])try{c.style.setProperty(prop,s.getPropertyValue(prop))}catch{};c.style.position='relative';c.style.left='auto';c.style.top='auto';c.style.right='auto';c.style.bottom='auto';c.style.transform='none';});clone.style.width='100%';clone.style.height='100%';clone.style.margin='0';clone.style.pointerEvents='none';wrap.append(clone);if(wasHidden)hide(el);return wrap}
-function render(){if(!root)return;tray.replaceChildren();for(const item of state.items){const b=document.createElement('button');b.className='dw2-lt-item';b.title=item.name;b.append(visual(resolve(item)));b.onclick=()=>{const el=resolve(item);if(!el){b.title='原悬浮球暂时未找到';return}open=false;tray.hidden=true;position();activate(item,el);setTimeout(sync,300)};const remove=document.createElement('span');remove.className='dw2-lt-remove';remove.textContent='×';remove.title='取出';remove.onclick=e=>{e.stopPropagation();const el=resolve(item);if(el)show(el);state.items=state.items.filter(x=>x!==item);save();render()};b.append(remove);tray.append(b)}if(!state.items.length){const hint=document.createElement('span');hint.className='dw2-lt-hint';hint.textContent='拖入悬浮球';tray.append(hint)}tray.hidden=!open;position()}
+function render(){if(!root)return;tray.replaceChildren();
+const tool=document.createElement('button');tool.className='dw2-lt-tool';tool.type='button';tool.title='背景调节';tool.setAttribute('aria-label','打开背景调节');
+tool.innerHTML='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/></svg>';
+tool.onclick=()=>{open=false;tray.hidden=true;position();background.open()};tray.append(tool);
+for(const item of state.items){const b=document.createElement('button');b.className='dw2-lt-item';b.title=item.name;b.append(visual(resolve(item)));b.onclick=()=>{const el=resolve(item);if(!el){b.title='原悬浮球暂时未找到';return}open=false;tray.hidden=true;position();activate(item,el);setTimeout(sync,300)};const remove=document.createElement('span');remove.className='dw2-lt-remove';remove.textContent='×';remove.title='取出';remove.onclick=e=>{e.stopPropagation();const el=resolve(item);if(el)show(el);state.items=state.items.filter(x=>x!==item);save();render()};b.append(remove);tray.append(b)}if(!state.items.length){const hint=document.createElement('span');hint.className='dw2-lt-hint';hint.textContent='拖入悬浮球';tray.append(hint)}tray.hidden=!open;position()}
 function sync(){if(!root)return;if(state.visible===false){restoreAll();root.style.display='none';return}root.style.display=state.minimized?'none':'';for(const el of [...hidden.keys()])if(!state.items.some(i=>resolve(i)===el))show(el);for(const item of state.items){const el=resolve(item);if(valid(el))hide(el)}render()}
 function collect(el,clicked){if(!candidate(el))return false;const target=clicked&&el.contains(clicked)?clicked:el;el=outerCandidate(el);const s=selector(el);if(!s||state.items.some(i=>i.selector===s))return false;const text=(el.getAttribute('aria-label')||el.title||el.textContent||'').trim();state.items.push({selector:s,clickSelector:selector(target),name:text.slice(0,28)||'悬浮球',glyph:(text.replace(/\s/g,'').slice(0,2)||'◦')});hide(el);save();render();ball.classList.add('dw2-lt-pulse');setTimeout(()=>ball?.classList.remove('dw2-lt-pulse'),400);return true}
 function candidates(){const all=document.querySelectorAll('[data-tt-mobile-surface="free-window"],[style*="fixed"],[style*="absolute"],button,img,iframe,[role="button"]');const out=[];for(const el of all){if(candidate(el))out.push(el)}return out}
@@ -34,7 +234,7 @@ function pointInDock(x,y){const r=rect(ball);return x>=r.left-30&&x<=r.right+30&
 function globalDown(e){if(state.visible===false||state.minimized||!root||root.contains(e.target))return;let el=closestCandidate(e.target);if(!el){let n=e.target;while(n&&n!==document.body){const s=getComputedStyle(n),r=rect(n);if(r.width>=22&&r.width<=125&&r.height>=22&&r.height<=125&&n.closest('[data-tt-mobile-surface="free-window"]')){el=n;break}n=n.parentElement}}if(!el){drag={el:e.target,target:e.target,x:e.clientX,y:e.clientY,moved:false,fallback:true,pointerId:e.pointerId};return}drag={el,target:e.target,x:e.clientX,y:e.clientY,moved:false,pointerId:e.pointerId};}
 function globalMove(e){if(state.visible===false||state.minimized||!root)return;if(!drag||(drag.pointerId!=null&&e.pointerId!==drag.pointerId))return;if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>18){drag.moved=true;if(open){open=false;tray.hidden=true;position()}}ball.classList.toggle('dw2-lt-ready',drag.moved&&pointInDock(e.clientX,e.clientY))}
 function globalUp(e){if(state.visible===false||state.minimized||!root){drag=null;ball?.classList.remove('dw2-lt-ready');return}if(!drag||(drag.pointerId!=null&&e.pointerId!==drag.pointerId))return;const d=drag;drag=null;ball.classList.remove('dw2-lt-ready');if(d.moved&&pointInDock(e.clientX,e.clientY)){const el=valid(d.el)?d.el:null;if(el){if(d.fallback){let n=el;while(n&&n!==document.body){if(candidate(n)){collect(n,d.target);break}n=n.parentElement}}else collect(el,d.target)}}}
-function position(){if(!root)return;const side=state.side==='left'?'left':'right';root.dataset.side=side;root.classList.toggle('dw2-lt-open',open);root.style.left=side==='left'?'0px':'auto';root.style.right=side==='right'?'0px':'auto';const bottom=Math.max(12,Math.min(innerHeight-58,state.y));root.style.bottom=bottom+'px';if(tray){const gap=16,handle=60,margin=12;const above=Math.max(0,innerHeight-bottom-handle-gap-margin),below=Math.max(0,bottom-gap-margin);const desired=Math.min(310,28+state.items.length*40+Math.max(0,state.items.length-1)*13);const direction=below>=desired||below>above?'down':'up';root.dataset.expand=direction;tray.style.maxHeight=Math.max(0,Math.min(310,direction==='down'?below:above))+'px'}root.style.transform=open?'translateX(0)':side==='left'?'translateX(-48%)':'translateX(48%)'}
+function position(){if(!root)return;const side=state.side==='left'?'left':'right';root.dataset.side=side;root.classList.toggle('dw2-lt-open',open);root.style.left=side==='left'?'0px':'auto';root.style.right=side==='right'?'0px':'auto';const bottom=Math.max(12,Math.min(innerHeight-58,state.y));root.style.bottom=bottom+'px';if(tray){const gap=16,handle=60,margin=12;const above=Math.max(0,innerHeight-bottom-handle-gap-margin),below=Math.max(0,bottom-gap-margin);const desired=Math.min(310,28+(state.items.length+1)*40+state.items.length*13+(state.items.length?0:36));const direction=below>=desired||below>above?'down':'up';root.dataset.expand=direction;tray.style.maxHeight=Math.max(0,Math.min(310,direction==='down'?below:above))+'px'}root.style.transform=open?'translateX(0)':side==='left'?'translateX(-48%)':'translateX(48%)'}
 function snap(x){state.side=x<innerWidth/2?'left':'right';state.x=0;state.y=Math.max(12,Math.min(innerHeight-52,state.y));save();position()}
 function setVisible(yes){state.visible=yes;if(!yes){drag=null;ball?.classList.remove('dw2-lt-ready')}save();if(!yes){open=false;position();restoreAll();root.style.display='none'}else{sync()}updateMagicMenu()}
 function setMinimized(yes){state.minimized=!!yes;if(state.minimized){drag=null;ball?.classList.remove('dw2-lt-ready')}open=false;save();if(root){tray.hidden=true;position();root.style.display=state.minimized||state.visible===false?'none':''}updateMagicMenu()}
@@ -43,9 +243,17 @@ function mountMagicMenu(){const menu=document.querySelector('#extensionsMenu');i
 function sortSettings(){const section=document.getElementById('dw2-lt-settings');const anchor=document.getElementById('dw2-preset-console-settings');if(!section||!anchor||!anchor.parentElement||anchor===section)return;const host=anchor.parentElement;if(section.parentElement!==host||anchor.nextElementSibling!==section)anchor.after(section)}
 function notify(message,kind='info'){const t=window.toastr;if(typeof t?.[kind]==='function')t[kind](message,'DW2 · Little Things');else window.alert(message)}
 async function updateLittleThings(btn){if(btn.disabled)return;btn.disabled=true;btn.textContent='检查中…';try{const [scriptMod,extMod]=await Promise.all([import('/script.js'),import('/scripts/extensions.js')]);const headers=typeof scriptMod.getRequestHeaders==='function'?scriptMod.getRequestHeaders():{'Content-Type':'application/json'};const types=extMod.extensionTypes||{};const id=Object.keys(types).find(key=>key==='third-party/dw2-little-things'||key==='dw2-little-things'||key.endsWith('/dw2-little-things'));if(!id)throw new Error('无法识别插件安装目录，请使用管理扩展更新');const res=await fetch('/api/extensions/update',{method:'POST',headers,body:JSON.stringify({extensionName:id.replace(/^third-party\//,''),global:types[id]==='global'})});if(!res.ok)throw new Error((await res.text()).slice(0,220)||'HTTP '+res.status);const result=await res.json();notify(result.isUpToDate?'已是最新版本':'更新完成，请刷新酒馆','success')}catch(error){notify('检查更新失败：'+(error.message||error)+'。也可在管理扩展中更新。','warning')}finally{btn.disabled=false;btn.textContent='检查并更新'}}
-function mountSettings(){let section=document.getElementById('dw2-lt-settings');if(section){sortSettings();return}const host=document.querySelector('#extensions_settings2,#extensions_settings,.extensions_settings');if(!host)return;section=document.createElement('div');section.id='dw2-lt-settings';section.className='inline-drawer';const header=document.createElement('div');header.className='inline-drawer-toggle inline-drawer-header';header.setAttribute('aria-expanded','false');const title=document.createElement('span');title.className='dw2-lt-heading';title.textContent='✧ DW2 · Little Things';const credit=document.createElement('small');credit.className='dw2-lt-credit';credit.textContent='S.A. · DW2';title.append(credit);const arrow=document.createElement('i');arrow.className='inline-drawer-icon fa-solid fa-circle-chevron-down down';header.append(title,arrow);const body=document.createElement('div');body.className='inline-drawer-content';body.style.display='none';const versionNote=document.createElement('p');versionNote.className='dw2-lt-version-note';versionNote.textContent='悬浮按钮收纳管理 · v0.5.3-beta.1';const reset=document.createElement('button');reset.textContent='恢复全部悬浮球';reset.onclick=()=>{state.items=[];restoreAll();save();render()};const label=document.createElement('label');label.className='dw2-lt-switch';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=state.visible!==false;checkbox.onchange=()=>setVisible(checkbox.checked);label.append(checkbox,document.createTextNode(' 显示悬浮收纳球'));const actions=document.createElement('div');actions.className='dw2-lt-actions';const update=document.createElement('button');update.textContent='检查并更新';update.onclick=()=>void updateLittleThings(update);const refresh=document.createElement('button');refresh.textContent='刷新酒馆';refresh.onclick=()=>{if(window.confirm('重新加载 TT 酒馆？请先保存尚未保存的修改。'))window.location.reload()};actions.append(update,refresh,reset);body.append(versionNote,label,actions);header.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const expanded=body.style.display==='none';body.style.display=expanded?'block':'none';header.setAttribute('aria-expanded',String(expanded));arrow.classList.toggle('down',!expanded)});section.append(header,body);host.append(section);sortSettings()}
-function mount(){if(document.getElementById(ID))return;root=document.createElement('div');root.id=ID;root.dataset.ttMobileSurface='free-window';ball=document.createElement('button');ball.id='dw2-lt-btn';ball.textContent='little';ball.setAttribute('aria-label','悬浮收纳');tray=document.createElement('div');tray.id='dw2-lt-tray';tray.hidden=true;root.append(tray,ball);document.body.append(root);if(!state.side)state.side=state.x>innerWidth/2?'left':'right';position();mountSettings();let start=null,moved=false;ball.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY,ry:state.y};moved=false;try{ball.setPointerCapture(e.pointerId)}catch{}});ball.addEventListener('pointermove',e=>{if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.hypot(dx,dy)>7)moved=true;if(moved){state.y=Math.max(12,Math.min(innerHeight-52,start.ry-dy));root.style.transform='translateX(0)';root.style.left=Math.max(0,Math.min(innerWidth-28,e.clientX-14))+'px';root.style.right='auto';root.dataset.dragging='true';root.style.bottom=state.y+'px'}});ball.addEventListener('pointerup',e=>{start=null;root.removeAttribute('data-dragging');if(moved)snap(e.clientX);else position()});ball.addEventListener('pointercancel',()=>{start=null;root.removeAttribute('data-dragging');position()});ball.onclick=()=>{if(moved){moved=false;return}open=!open;render()};window.addEventListener('resize',()=>position());document.addEventListener('pointerdown',globalDown,true);document.addEventListener('pointermove',globalMove,true);document.addEventListener('pointerup',globalUp,true);document.addEventListener('pointercancel',globalUp,true);observer=new MutationObserver(()=>{clearTimeout(scanTimer);scanTimer=setTimeout(()=>{mountMagicMenu();for(const i of state.items){const el=resolve(i);if(valid(el))hide(el)}},150)});observer.observe(document.body,{childList:true,subtree:true});let attempts=0;const retry=()=>{if(!root)return;mountSettings();mountMagicMenu();if(++attempts<120)setTimeout(retry,500)};retry();sync();mountMagicMenu()}
-function unmount(){observer?.disconnect();clearTimeout(scanTimer);document.removeEventListener('pointerdown',globalDown,true);document.removeEventListener('pointermove',globalMove,true);document.removeEventListener('pointerup',globalUp,true);document.removeEventListener('pointercancel',globalUp,true);restoreAll();document.getElementById('dw2-lt-magic-entry')?.remove();root?.remove();root=null}
+function mountSettings(){let section=document.getElementById('dw2-lt-settings');if(section){sortSettings();return}const host=document.querySelector('#extensions_settings2,#extensions_settings,.extensions_settings');if(!host)return;section=document.createElement('div');section.id='dw2-lt-settings';section.className='inline-drawer';const header=document.createElement('div');header.className='inline-drawer-toggle inline-drawer-header';header.setAttribute('aria-expanded','false');const title=document.createElement('span');title.className='dw2-lt-heading';title.textContent='✧ DW2 · Little Things';const credit=document.createElement('small');credit.className='dw2-lt-credit';credit.textContent='S.A. · DW2';title.append(credit);const arrow=document.createElement('i');arrow.className='inline-drawer-icon fa-solid fa-circle-chevron-down down';header.append(title,arrow);const body=document.createElement('div');body.className='inline-drawer-content';body.style.display='none';const versionNote=document.createElement('p');versionNote.className='dw2-lt-version-note';versionNote.textContent='悬浮收纳 · 背景调节 · v0.6.0-beta.1';const reset=document.createElement('button');reset.textContent='恢复全部悬浮球';reset.onclick=()=>{state.items=[];restoreAll();save();render()};const label=document.createElement('label');label.className='dw2-lt-switch';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=state.visible!==false;checkbox.onchange=()=>setVisible(checkbox.checked);label.append(checkbox,document.createTextNode(' 显示悬浮收纳球'));const actions=document.createElement('div');actions.className='dw2-lt-actions';const update=document.createElement('button');update.textContent='检查并更新';update.onclick=()=>void updateLittleThings(update);const refresh=document.createElement('button');refresh.textContent='刷新酒馆';refresh.onclick=()=>{if(window.confirm('重新加载 TT 酒馆？请先保存尚未保存的修改。'))window.location.reload()};actions.append(update,refresh,reset);
+const bgBox=document.createElement('div');bgBox.className='dw2-lt-module-box';
+const bgRow=document.createElement('label');bgRow.className='dw2-lt-switch';
+const bgCheck=document.createElement('input');bgCheck.type='checkbox';bgCheck.id='dw2-lt-bg-enabled';bgCheck.checked=!!state.bgTunerEnabled;
+bgCheck.onchange=()=>{if(bgCheck.checked)background.enable();else background.disable()};
+bgRow.append(bgCheck,document.createTextNode(' 启用背景调节'));
+const bgOpen=document.createElement('button');bgOpen.type='button';bgOpen.className='dw2-lt-bg-open';bgOpen.textContent='打开背景调节';
+bgOpen.onclick=()=>background.open();bgBox.append(bgRow,bgOpen);
+body.append(versionNote,label,bgBox,actions);header.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const expanded=body.style.display==='none';body.style.display=expanded?'block':'none';header.setAttribute('aria-expanded',String(expanded));arrow.classList.toggle('down',!expanded)});section.append(header,body);host.append(section);sortSettings()}
+function mount(){if(document.getElementById(ID))return;root=document.createElement('div');root.id=ID;root.dataset.ttMobileSurface='free-window';ball=document.createElement('button');ball.id='dw2-lt-btn';ball.textContent='little';ball.setAttribute('aria-label','悬浮收纳');tray=document.createElement('div');tray.id='dw2-lt-tray';tray.hidden=true;root.append(tray,ball);document.body.append(root);if(!state.side)state.side=state.x>innerWidth/2?'left':'right';position();mountSettings();let start=null,moved=false;ball.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY,ry:state.y};moved=false;try{ball.setPointerCapture(e.pointerId)}catch{}});ball.addEventListener('pointermove',e=>{if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.hypot(dx,dy)>7)moved=true;if(moved){state.y=Math.max(12,Math.min(innerHeight-52,start.ry-dy));root.style.transform='translateX(0)';root.style.left=Math.max(0,Math.min(innerWidth-28,e.clientX-14))+'px';root.style.right='auto';root.dataset.dragging='true';root.style.bottom=state.y+'px'}});ball.addEventListener('pointerup',e=>{start=null;root.removeAttribute('data-dragging');if(moved)snap(e.clientX);else position()});ball.addEventListener('pointercancel',()=>{start=null;root.removeAttribute('data-dragging');position()});ball.onclick=()=>{if(moved){moved=false;return}open=!open;render()};window.addEventListener('resize',()=>position());document.addEventListener('pointerdown',globalDown,true);document.addEventListener('pointermove',globalMove,true);document.addEventListener('pointerup',globalUp,true);document.addEventListener('pointercancel',globalUp,true);observer=new MutationObserver(()=>{clearTimeout(scanTimer);scanTimer=setTimeout(()=>{mountMagicMenu();for(const i of state.items){const el=resolve(i);if(valid(el))hide(el)}},150)});observer.observe(document.body,{childList:true,subtree:true});let attempts=0;const retry=()=>{if(!root)return;mountSettings();mountMagicMenu();if(++attempts<120)setTimeout(retry,500)};retry();sync();mountMagicMenu();background.init()}
+function unmount(){background.stop();observer?.disconnect();clearTimeout(scanTimer);document.removeEventListener('pointerdown',globalDown,true);document.removeEventListener('pointermove',globalMove,true);document.removeEventListener('pointerup',globalUp,true);document.removeEventListener('pointercancel',globalUp,true);restoreAll();document.getElementById('dw2-lt-magic-entry')?.remove();root?.remove();root=null}
 window.DW2LittleThings={enable:mount,disable:unmount,detect:()=>candidates().map(el=>({selector:selector(el),rect:rect(el).toJSON?.()})),restore:()=>{state.items=[];restoreAll();save();render()}};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
