@@ -525,7 +525,7 @@ function openFloorPanel(){
  const autoTitle=document.createElement('span');autoTitle.textContent='自动隐藏旧楼层';
  autoHead.append(autoCheck,autoTitle);
  const autoHint=document.createElement('p');autoHint.className='dw2-lt-floor-auto-hint';
- autoHint.textContent='默认关闭。保留开场白和带标记的大总结；手动恢复旧楼层前请先关闭自动隐藏。';
+ autoHint.textContent='保留开场白与带标记的大总结。删除或重新生成后，只回补由本功能隐藏的旧消息；手动恢复前请先关闭自动开关。';
  const keepOptions=document.createElement('div');keepOptions.className='dw2-lt-floor-keep-options';
  const keep50=document.createElement('button');keep50.type='button';keep50.textContent='保留最近 50 层';
  const keepCustom=document.createElement('button');keepCustom.type='button';keepCustom.textContent='自定义层数';
