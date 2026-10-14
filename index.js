@@ -5,6 +5,10 @@ const hidden=new Map(),tracked=new WeakSet();
 try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)state={...state,...s};else{const old=JSON.parse(localStorage.getItem(OLD)||'null');if(old)state.x=old.x??18,state.y=old.y??110}}catch{}
 if(state.wandHidden===true)state.minimized=true;delete state.wandHidden;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch{}};
+// Persist auto-floor settings in the existing Little Things key, never a second store.
+state.autoFloorEnabled=state.autoFloorEnabled===true;
+state.autoFloorMode=state.autoFloorMode==='custom'?'custom':'50';
+state.autoFloorCustom=Number.isSafeInteger(Number(state.autoFloorCustom))&&Number(state.autoFloorCustom)>=10&&Number(state.autoFloorCustom)<=5000?Number(state.autoFloorCustom):50;
 
 // ============================================================
 // DW2 · Little Things / Background Tuner
@@ -277,13 +281,107 @@ function closeFloorPanel(){
  floorPanel?.remove();
  floorPanel=null;
 }
+
+// Automated floor retention is opt-in. It changes only TT's own prompt context
+// exclusion flag via /hide, not the chat content or on-screen messages.
+let autoFloorTimer=0,autoFloorRunning=false,autoFloorGeneration=false,autoFloorEvents=[];
+function currentFloorKeep(){
+ return state.autoFloorMode==='custom'?state.autoFloorCustom:50;
+}
+function autoFloorChatKey(ctx){
+ const id=String(ctx?.getCurrentChatId?.()||ctx?.chatId||'');
+ const participant=ctx?.groupId?('group:'+ctx.groupId):('character:'+ctx?.characterId);
+ return id&&participant!=='character:undefined'&&participant!=='character:null'?participant+'/'+id:'';
+}
+function protectedFloorMessage(message,index){
+ if(index===0||!message||message.is_system===true)return true;
+ const body=String(message.mes||'');
+ // Protect structured summary records. No arbitrary guess about text quality.
+ return /<abstract(?:\s[^>]*)?>|[✦☆]\s*大总结\b|大总结\s*第\s*\d+|总结范围[：:]/iu.test(body);
+}
+function planAutoFloorRanges(chat,keep){
+ if(!Array.isArray(chat)||!Number.isSafeInteger(keep)||keep<10)return [];
+ const boundary=chat.length-keep;
+ if(boundary<=1)return [];
+ const ranges=[];let start=-1;
+ for(let i=1;i<=boundary;i++){
+  const eligible=i<boundary&&!protectedFloorMessage(chat[i],i);
+  if(eligible&&start<0)start=i;
+  if(!eligible&&start>=0){
+   ranges.push({start,end:i-1});
+   start=-1;
+  }
+ }
+ return ranges;
+}
+function scheduleAutoFloor(ms=800){
+ clearTimeout(autoFloorTimer);
+ autoFloorTimer=0;
+ if(!state.autoFloorEnabled||!root)return;
+ autoFloorTimer=setTimeout(()=>{autoFloorTimer=0;void runAutoFloor();},ms);
+}
+async function runAutoFloor(){
+ if(!state.autoFloorEnabled||!root||autoFloorGeneration)return;
+ if(autoFloorRunning){scheduleAutoFloor(1300);return;}
+ const ctx=globalThis.SillyTavern?.getContext?.();
+ const key=autoFloorChatKey(ctx);
+ if(!key||!Array.isArray(ctx?.chat)||!ctx.chat.length)return;
+ const originalChat=ctx.chat;
+ const ranges=planAutoFloorRanges(originalChat,currentFloorKeep());
+ if(!ranges.length)return;
+ if(typeof ctx.executeSlashCommandsWithOptions!=='function')return;
+ autoFloorRunning=true;
+ try{
+  // Bound the work per pass for chats with many protected summary islands.
+  for(const range of ranges.slice(0,12)){
+   if(!state.autoFloorEnabled||!root||autoFloorGeneration)break;
+   const live=globalThis.SillyTavern?.getContext?.();
+   if(live?.chat!==originalChat||autoFloorChatKey(live)!==key)break;
+   const cmd='/hide '+(range.start===range.end?range.start:range.start+'-'+range.end);
+   const result=await live.executeSlashCommandsWithOptions(cmd,{
+    handleParserErrors:false,handleExecutionErrors:false,source:'dw2-little-things-auto-floor'
+   });
+   if(!result||result.isAborted)throw new Error('TT 未完成隐藏操作');
+  }
+  if(ranges.length>12&&state.autoFloorEnabled)scheduleAutoFloor(1400);
+ }catch(err){
+  // Never repeatedly retry and mutate a chat after a failed command.
+  console.warn('[DW2 Little Things] Auto floor hide stopped:',err);
+  state.autoFloorEnabled=false;save();
+  notify('自动隐藏已暂停：'+String(err?.message||err),'warning');
+ }finally{autoFloorRunning=false;}
+}
+function bindAutoFloorEvents(){
+ if(autoFloorEvents.length)return;
+ const ctx=globalThis.SillyTavern?.getContext?.();
+ const bus=ctx?.eventSource,types=ctx?.eventTypes||ctx?.event_types;
+ if(!bus?.on||!types)return;
+ for(const [name,listener] of [
+  ['CHAT_CHANGED',()=>scheduleAutoFloor(1100)],
+  ['GENERATION_STARTED',()=>{autoFloorGeneration=true;}],
+  ['GENERATION_ENDED',()=>{autoFloorGeneration=false;scheduleAutoFloor(1100);}],
+  ['MESSAGE_RECEIVED',()=>scheduleAutoFloor(1300)],
+  ['MESSAGE_DELETED',()=>scheduleAutoFloor(1100)]
+ ]){
+  const type=types[name];if(!type)continue;
+  bus.on(type,listener);autoFloorEvents.push({bus,type,listener});
+ }
+ scheduleAutoFloor(1600);
+}
+function unbindAutoFloorEvents(){
+ clearTimeout(autoFloorTimer);autoFloorTimer=0;
+ for(const {bus,type,listener} of autoFloorEvents.splice(0)){
+  if(typeof bus.off==='function')bus.off(type,listener);
+  else if(typeof bus.removeListener==='function')bus.removeListener(type,listener);
+ }
+ autoFloorGeneration=false;
+}
+
 function openFloorPanel(){
  closeFloorPanel();
  const ctx=globalThis.SillyTavern?.getContext?.();
- if(!ctx || !Array.isArray(ctx.chat) || !ctx.chat.length){
-  notify('请先进入有聊天记录的对话，再操作楼层。','warning');
-  return;
- }
+ // Settings can be configured even before entering a chat.
+ // Manual execution still validates actual chat range on submit.
  const overlay=document.createElement('div');
  overlay.id='dw2-lt-floor-backdrop';
  overlay.setAttribute('role','presentation');
@@ -311,7 +409,7 @@ function openFloorPanel(){
  input.type='text';input.inputMode='text';input.autocomplete='off';input.spellcheck=false;
  input.placeholder='例如 0-10 或 12';input.setAttribute('aria-label','请输入楼层范围');
  const rangeHint=document.createElement('p');rangeHint.className='dw2-lt-floor-hint';
- rangeHint.textContent='当前可用楼层：0-'+(ctx.chat.length-1);
+ rangeHint.textContent=ctx?.chat?.length?'当前可用楼层：0-'+(ctx.chat.length-1):'尚未进入有效聊天；可先设置自动模式。';
  const error=document.createElement('p');error.className='dw2-lt-floor-error';
  error.setAttribute('role','status');error.setAttribute('aria-live','polite');
  const actions=document.createElement('div');actions.className='dw2-lt-floor-actions';
@@ -355,7 +453,69 @@ function openFloorPanel(){
  submit.onclick=()=>void apply();
  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();void apply();}});
  actions.append(cancel,submit);
- dialog.append(head,intro,options,caption,input,rangeHint,error,actions);
+ // Auto controls are independent of the manual hide/restore form.
+ const autoBox=document.createElement('section');autoBox.className='dw2-lt-floor-auto';
+ const autoHead=document.createElement('label');autoHead.className='dw2-lt-floor-auto-head';
+ const autoCheck=document.createElement('input');autoCheck.type='checkbox';
+ autoCheck.id='dw2-lt-floor-auto-enabled';autoCheck.checked=state.autoFloorEnabled;
+ const autoTitle=document.createElement('span');autoTitle.textContent='自动隐藏旧楼层';
+ autoHead.append(autoCheck,autoTitle);
+ const autoHint=document.createElement('p');autoHint.className='dw2-lt-floor-auto-hint';
+ autoHint.textContent='默认关闭。开启后自动排除过旧消息；保留开场白和带总结标记的剧情大总结。';
+ const keepOptions=document.createElement('div');keepOptions.className='dw2-lt-floor-keep-options';
+ const keep50=document.createElement('button');keep50.type='button';keep50.textContent='保留最近 50 层';
+ const keepCustom=document.createElement('button');keepCustom.type='button';keepCustom.textContent='自定义层数';
+ keepOptions.append(keep50,keepCustom);
+ const customWrap=document.createElement('label');customWrap.className='dw2-lt-floor-custom-wrap';
+ customWrap.textContent='自定义保留：';
+ const customInput=document.createElement('input');customInput.type='number';customInput.min='10';
+ customInput.max='5000';customInput.step='1';customInput.inputMode='numeric';
+ customInput.value=String(state.autoFloorCustom);
+ customInput.setAttribute('aria-label','自定义保留最近多少层');
+ const unit=document.createElement('span');unit.textContent='层（10～5000）';
+ customWrap.append(customInput,unit);
+ const autoStatus=document.createElement('p');autoStatus.className='dw2-lt-floor-auto-status';
+ autoStatus.setAttribute('role','status');autoStatus.setAttribute('aria-live','polite');
+ function showAuto(){
+  autoCheck.checked=state.autoFloorEnabled;
+  keep50.setAttribute('aria-pressed',String(state.autoFloorMode==='50'));
+  keepCustom.setAttribute('aria-pressed',String(state.autoFloorMode==='custom'));
+  customWrap.hidden=state.autoFloorMode!=='custom';
+  autoStatus.textContent=(state.autoFloorEnabled?'已启用':'已关闭')+' · 保留最近 '+currentFloorKeep()+' 层。关闭不自动恢复历史消息。';
+ }
+ function setKeep(choice){
+  if(choice==='custom'){
+   const val=Number(customInput.value);
+   if(!Number.isSafeInteger(val)||val<10||val>5000){
+    autoStatus.textContent='请填写 10～5000 之间的整数。';
+    return;
+   }
+   state.autoFloorCustom=val;
+  }
+  state.autoFloorMode=choice;save();showAuto();scheduleAutoFloor(450);
+ }
+ keep50.onclick=()=>setKeep('50');
+ keepCustom.onclick=()=>setKeep('custom');
+ customInput.onchange=()=>{
+  if(state.autoFloorMode!=='custom')return;
+  setKeep('custom');
+ };
+ autoCheck.onchange=()=>{
+  if(autoCheck.checked&&state.autoFloorMode==='custom'){
+   const val=Number(customInput.value);
+   if(!Number.isSafeInteger(val)||val<10||val>5000){
+    autoCheck.checked=false;autoStatus.textContent='先设置 10～5000 之间的保留层数。';return;
+   }
+   state.autoFloorCustom=val;
+  }
+  state.autoFloorEnabled=autoCheck.checked;
+  save();showAuto();
+  if(state.autoFloorEnabled)scheduleAutoFloor(400);
+  else{clearTimeout(autoFloorTimer);autoFloorTimer=0;}
+ };
+ showAuto();
+ autoBox.append(autoHead,autoHint,keepOptions,customWrap,autoStatus);
+ dialog.append(head,intro,autoBox,options,caption,input,rangeHint,error,actions);
  overlay.append(dialog);
  overlay.addEventListener('click',e=>{if(e.target===overlay&&!busy)closeFloorPanel();});
  overlay.addEventListener('keydown',e=>{
@@ -396,8 +556,8 @@ bgRow.append(bgCheck,document.createTextNode(' 启用背景调节'));
 const bgOpen=document.createElement('button');bgOpen.type='button';bgOpen.className='dw2-lt-bg-open';bgOpen.textContent='打开背景调节';
 bgOpen.onclick=()=>background.open();bgBox.append(bgRow,bgOpen);
 body.append(versionNote,floatBox,bgBox,actions);header.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const expanded=body.style.display==='none';body.style.display=expanded?'block':'none';header.setAttribute('aria-expanded',String(expanded));arrow.classList.toggle('down',!expanded)});section.append(header,body);host.append(section);sortSettings()}
-function mount(){if(document.getElementById(ID))return;root=document.createElement('div');root.id=ID;root.dataset.ttMobileSurface='free-window';ball=document.createElement('button');ball.id='dw2-lt-btn';ball.textContent='little';ball.setAttribute('aria-label','悬浮收纳');tray=document.createElement('div');tray.id='dw2-lt-tray';tray.hidden=true;root.append(tray,ball);document.body.append(root);if(!state.side)state.side=state.x>innerWidth/2?'left':'right';position();mountSettings();let start=null,moved=false;ball.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY,ry:state.y};moved=false;try{ball.setPointerCapture(e.pointerId)}catch{}});ball.addEventListener('pointermove',e=>{if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.hypot(dx,dy)>7)moved=true;if(moved){state.y=Math.max(12,Math.min(innerHeight-52,start.ry-dy));root.style.transform='translateX(0)';root.style.left=Math.max(0,Math.min(innerWidth-28,e.clientX-14))+'px';root.style.right='auto';root.dataset.dragging='true';root.style.bottom=state.y+'px'}});ball.addEventListener('pointerup',e=>{start=null;root.removeAttribute('data-dragging');if(moved)snap(e.clientX);else position()});ball.addEventListener('pointercancel',()=>{start=null;root.removeAttribute('data-dragging');position()});ball.onclick=()=>{if(moved){moved=false;return}open=!open;render()};window.addEventListener('resize',()=>position());document.addEventListener('pointerdown',globalDown,true);document.addEventListener('pointermove',globalMove,true);document.addEventListener('pointerup',globalUp,true);document.addEventListener('pointercancel',globalUp,true);observer=new MutationObserver(()=>{clearTimeout(scanTimer);scanTimer=setTimeout(()=>{mountMagicMenu();for(const i of state.items){const el=resolve(i);if(valid(el))hide(el)}},150)});observer.observe(document.body,{childList:true,subtree:true});let attempts=0;const retry=()=>{if(!root)return;mountSettings();mountMagicMenu();if(++attempts<120)setTimeout(retry,500)};retry();sync();mountMagicMenu();background.init()}
-function unmount(){closeFloorPanel();background.stop();observer?.disconnect();clearTimeout(scanTimer);document.removeEventListener('pointerdown',globalDown,true);document.removeEventListener('pointermove',globalMove,true);document.removeEventListener('pointerup',globalUp,true);document.removeEventListener('pointercancel',globalUp,true);restoreAll();document.getElementById('dw2-lt-magic-entry')?.remove();document.getElementById('dw2-lt-bg-magic-entry')?.remove();document.getElementById('dw2-lt-floor-magic-entry')?.remove();root?.remove();root=null}
+function mount(){if(document.getElementById(ID))return;root=document.createElement('div');root.id=ID;root.dataset.ttMobileSurface='free-window';ball=document.createElement('button');ball.id='dw2-lt-btn';ball.textContent='little';ball.setAttribute('aria-label','悬浮收纳');tray=document.createElement('div');tray.id='dw2-lt-tray';tray.hidden=true;root.append(tray,ball);document.body.append(root);if(!state.side)state.side=state.x>innerWidth/2?'left':'right';position();mountSettings();let start=null,moved=false;ball.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY,ry:state.y};moved=false;try{ball.setPointerCapture(e.pointerId)}catch{}});ball.addEventListener('pointermove',e=>{if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.hypot(dx,dy)>7)moved=true;if(moved){state.y=Math.max(12,Math.min(innerHeight-52,start.ry-dy));root.style.transform='translateX(0)';root.style.left=Math.max(0,Math.min(innerWidth-28,e.clientX-14))+'px';root.style.right='auto';root.dataset.dragging='true';root.style.bottom=state.y+'px'}});ball.addEventListener('pointerup',e=>{start=null;root.removeAttribute('data-dragging');if(moved)snap(e.clientX);else position()});ball.addEventListener('pointercancel',()=>{start=null;root.removeAttribute('data-dragging');position()});ball.onclick=()=>{if(moved){moved=false;return}open=!open;render()};window.addEventListener('resize',()=>position());document.addEventListener('pointerdown',globalDown,true);document.addEventListener('pointermove',globalMove,true);document.addEventListener('pointerup',globalUp,true);document.addEventListener('pointercancel',globalUp,true);observer=new MutationObserver(()=>{clearTimeout(scanTimer);scanTimer=setTimeout(()=>{mountMagicMenu();for(const i of state.items){const el=resolve(i);if(valid(el))hide(el)}},150)});observer.observe(document.body,{childList:true,subtree:true});let attempts=0;const retry=()=>{if(!root)return;mountSettings();mountMagicMenu();if(++attempts<120)setTimeout(retry,500)};retry();sync();mountMagicMenu();background.init();bindAutoFloorEvents()}
+function unmount(){unbindAutoFloorEvents();closeFloorPanel();background.stop();observer?.disconnect();clearTimeout(scanTimer);document.removeEventListener('pointerdown',globalDown,true);document.removeEventListener('pointermove',globalMove,true);document.removeEventListener('pointerup',globalUp,true);document.removeEventListener('pointercancel',globalUp,true);restoreAll();document.getElementById('dw2-lt-magic-entry')?.remove();document.getElementById('dw2-lt-bg-magic-entry')?.remove();document.getElementById('dw2-lt-floor-magic-entry')?.remove();root?.remove();root=null}
 window.DW2LittleThings={enable:mount,disable:unmount,detect:()=>candidates().map(el=>({selector:selector(el),rect:rect(el).toJSON?.()})),restore:()=>{state.items=[];restoreAll();save();render()}};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
