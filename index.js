@@ -257,7 +257,132 @@ function mountBgMagicMenu(menu){
  item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){openPanel(e)}});
  menu.append(item);
 }
-function mountMagicMenu(){const menu=document.querySelector('#extensionsMenu');if(!menu)return;let item=document.getElementById('dw2-lt-magic-entry');if(item&&item.parentElement===menu){updateMagicMenu();mountBgMagicMenu(menu);return}if(item)item.remove();item=document.createElement('div');item.id='dw2-lt-magic-entry';item.className='extension_container interactable';item.setAttribute('role','button');item.setAttribute('tabindex','0');const icon=document.createElement('i');icon.className='fa-solid fa-bookmark';icon.setAttribute('aria-hidden','true');const label=document.createElement('span');label.className='dw2-lt-magic-label';item.append(icon,label);const toggle=e=>{e?.preventDefault();e?.stopPropagation();if(state.visible===false){state.visible=true;const checkbox=document.querySelector('#dw2-lt-settings .dw2-lt-switch input');if(checkbox)checkbox.checked=true;save();sync();setMinimized(false)}else setMinimized(!state.minimized)};item.addEventListener('click',toggle);item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){toggle(e)}});menu.append(item);mountBgMagicMenu(menu);updateMagicMenu()}
+
+// Native magic-wand entry: floor hiding is prompt-context control, NOT visual
+// deletion/folding of chat bubbles. Run only TT's own registered slash commands.
+let floorPanel=null;
+function parseFloorRange(raw,maxIndex){
+ const match=/^(\d+)(?:\s*-\s*(\d+))?$/.exec(String(raw??'').trim());
+ if(!match)return {error:'请输入单个楼层号或连续范围，例如 12 或 0-10。'};
+ const start=Number(match[1]),end=match[2]===undefined?start:Number(match[2]);
+ if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start>end)
+  return {error:'楼层范围不正确。起点不能大于终点。'};
+ if(!Number.isSafeInteger(maxIndex)||maxIndex<0)
+  return {error:'当前没有可操作的聊天楼层。'};
+ if(end>maxIndex)
+  return {error:'楼层超出当前聊天范围（0-'+maxIndex+'）。'};
+ return {start,end,range:start===end?String(start):start+'-'+end};
+}
+function closeFloorPanel(){
+ floorPanel?.remove();
+ floorPanel=null;
+}
+function openFloorPanel(){
+ closeFloorPanel();
+ const ctx=globalThis.SillyTavern?.getContext?.();
+ if(!ctx || !Array.isArray(ctx.chat) || !ctx.chat.length){
+  notify('请先进入有聊天记录的对话，再操作楼层。','warning');
+  return;
+ }
+ const overlay=document.createElement('div');
+ overlay.id='dw2-lt-floor-backdrop';
+ overlay.setAttribute('role','presentation');
+ const dialog=document.createElement('section');
+ dialog.id='dw2-lt-floor-panel';
+ dialog.setAttribute('role','dialog');
+ dialog.setAttribute('aria-modal','true');
+ dialog.setAttribute('aria-label','楼层操作台');
+ const head=document.createElement('div');head.className='dw2-lt-floor-head';
+ const title=document.createElement('div');title.className='dw2-lt-floor-title';
+ title.textContent='🪐 楼层操作台';
+ const close=document.createElement('button');close.type='button';close.className='dw2-lt-floor-close';
+ close.textContent='×';close.setAttribute('aria-label','关闭楼层操作台');
+ close.onclick=closeFloorPanel;head.append(title,close);
+ const intro=document.createElement('p');intro.className='dw2-lt-floor-intro';
+ intro.textContent='仅调整发送给 AI 的上下文，不删除消息，也不隐藏聊天页面上的楼层。';
+ const options=document.createElement('div');options.className='dw2-lt-floor-options';
+ const hide=document.createElement('button'),restore=document.createElement('button');
+ for(const [button,label] of [[hide,'🌙 隐藏楼层'],[restore,'💫 恢复楼层']]){
+  button.type='button';button.className='dw2-lt-floor-mode';button.textContent=label;options.append(button);
+ }
+ const caption=document.createElement('label');caption.className='dw2-lt-floor-label';
+ caption.htmlFor='dw2-lt-floor-input';caption.textContent='楼层号或范围';
+ const input=document.createElement('input');input.id='dw2-lt-floor-input';
+ input.type='text';input.inputMode='text';input.autocomplete='off';input.spellcheck=false;
+ input.placeholder='例如 0-10 或 12';input.setAttribute('aria-label','请输入楼层范围');
+ const rangeHint=document.createElement('p');rangeHint.className='dw2-lt-floor-hint';
+ rangeHint.textContent='当前可用楼层：0-'+(ctx.chat.length-1);
+ const error=document.createElement('p');error.className='dw2-lt-floor-error';
+ error.setAttribute('role','status');error.setAttribute('aria-live','polite');
+ const actions=document.createElement('div');actions.className='dw2-lt-floor-actions';
+ const cancel=document.createElement('button');cancel.type='button';cancel.textContent='取消';
+ cancel.onclick=closeFloorPanel;
+ const submit=document.createElement('button');submit.type='button';
+ submit.className='dw2-lt-floor-submit';
+ let mode='hide',busy=false;
+ function choose(next){
+  mode=next;hide.setAttribute('aria-pressed',String(mode==='hide'));
+  restore.setAttribute('aria-pressed',String(mode==='unhide'));
+  submit.textContent=mode==='hide'?'确认隐藏':'确认恢复';
+  error.textContent='';
+ }
+ hide.onclick=()=>choose('hide');restore.onclick=()=>choose('unhide');
+ choose('hide');
+ async function apply(){
+  if(busy)return;
+  const live=globalThis.SillyTavern?.getContext?.();
+  const parsed=parseFloorRange(input.value,(live?.chat?.length??0)-1);
+  if(parsed.error){error.textContent=parsed.error;return;}
+  const execute=live?.executeSlashCommandsWithOptions;
+  if(typeof execute!=='function'){
+   error.textContent='当前 TT 未提供楼层操作接口，请检查版本。';return;
+  }
+  busy=true;submit.disabled=true;cancel.disabled=true;submit.textContent='处理中…';error.textContent='';
+  try{
+   const result=await execute('/'+mode+' '+parsed.range,{
+    handleParserErrors:false,handleExecutionErrors:false,source:'dw2-little-things-floor'
+   });
+   if(!result||result.isAborted)throw new Error('楼层操作未完成');
+   closeFloorPanel();
+   notify((mode==='hide'?'已执行隐藏':'已执行恢复')+'楼层 '+parsed.range+'；可在 TT 聊天中确认效果。','success');
+  }catch(ex){
+   error.textContent='操作失败：'+String(ex?.message||ex);
+  }finally{
+   busy=false;submit.disabled=false;cancel.disabled=false;
+   if(floorPanel===overlay)submit.textContent=mode==='hide'?'确认隐藏':'确认恢复';
+  }
+ }
+ submit.onclick=()=>void apply();
+ input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();void apply();}});
+ actions.append(cancel,submit);
+ dialog.append(head,intro,options,caption,input,rangeHint,error,actions);
+ overlay.append(dialog);
+ overlay.addEventListener('click',e=>{if(e.target===overlay&&!busy)closeFloorPanel();});
+ overlay.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!busy){e.stopPropagation();closeFloorPanel();}
+ });
+ document.body.append(overlay);floorPanel=overlay;
+}
+function mountFloorMagicMenu(menu){
+ let item=document.getElementById('dw2-lt-floor-magic-entry');
+ if(item&&item.parentElement===menu)return;
+ item?.remove();
+ item=document.createElement('div');
+ item.id='dw2-lt-floor-magic-entry';item.className='extension_container interactable';
+ item.setAttribute('role','button');item.setAttribute('tabindex','0');
+ item.setAttribute('aria-label','楼层操作');
+ const icon=document.createElement('i');icon.className='fa-solid fa-layer-group';
+ icon.setAttribute('aria-hidden','true');
+ const label=document.createElement('span');label.className='dw2-lt-magic-label';
+ label.textContent='🪐 楼层操作';
+ item.append(icon,label);
+ const open=e=>{e?.preventDefault();e?.stopPropagation();openFloorPanel();};
+ item.addEventListener('click',open);
+ item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){open(e);}});
+ menu.append(item);
+}
+
+function mountMagicMenu(){const menu=document.querySelector('#extensionsMenu');if(!menu)return;let item=document.getElementById('dw2-lt-magic-entry');if(item&&item.parentElement===menu){updateMagicMenu();mountBgMagicMenu(menu);mountFloorMagicMenu(menu);return}if(item)item.remove();item=document.createElement('div');item.id='dw2-lt-magic-entry';item.className='extension_container interactable';item.setAttribute('role','button');item.setAttribute('tabindex','0');const icon=document.createElement('i');icon.className='fa-solid fa-bookmark';icon.setAttribute('aria-hidden','true');const label=document.createElement('span');label.className='dw2-lt-magic-label';item.append(icon,label);const toggle=e=>{e?.preventDefault();e?.stopPropagation();if(state.visible===false){state.visible=true;const checkbox=document.querySelector('#dw2-lt-settings .dw2-lt-switch input');if(checkbox)checkbox.checked=true;save();sync();setMinimized(false)}else setMinimized(!state.minimized)};item.addEventListener('click',toggle);item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){toggle(e)}});menu.append(item);mountBgMagicMenu(menu);mountFloorMagicMenu(menu);updateMagicMenu()}
 function sortSettings(){const section=document.getElementById('dw2-lt-settings');const anchor=document.getElementById('dw2-preset-console-settings');if(!section||!anchor||!anchor.parentElement||anchor===section)return;const host=anchor.parentElement;if(section.parentElement!==host||anchor.nextElementSibling!==section)anchor.after(section)}
 function notify(message,kind='info'){const t=window.toastr;if(typeof t?.[kind]==='function')t[kind](message,'DW2 · Little Things');else window.alert(message)}
 async function updateLittleThings(btn){if(btn.disabled)return;btn.disabled=true;btn.textContent='检查中…';try{const [scriptMod,extMod]=await Promise.all([import('/script.js'),import('/scripts/extensions.js')]);const headers=typeof scriptMod.getRequestHeaders==='function'?scriptMod.getRequestHeaders():{'Content-Type':'application/json'};const types=extMod.extensionTypes||{};const id=Object.keys(types).find(key=>key==='third-party/dw2-little-things'||key==='dw2-little-things'||key.endsWith('/dw2-little-things'));if(!id)throw new Error('无法识别插件安装目录，请使用管理扩展更新');const res=await fetch('/api/extensions/update',{method:'POST',headers,body:JSON.stringify({extensionName:id.replace(/^third-party\//,''),global:types[id]==='global'})});if(!res.ok)throw new Error((await res.text()).slice(0,220)||'HTTP '+res.status);const result=await res.json();notify(result.isUpToDate?'已是最新版本':'更新完成，请刷新酒馆','success')}catch(error){notify('检查更新失败：'+(error.message||error)+'。也可在管理扩展中更新。','warning')}finally{btn.disabled=false;btn.textContent='检查并更新'}}
@@ -272,7 +397,7 @@ const bgOpen=document.createElement('button');bgOpen.type='button';bgOpen.classN
 bgOpen.onclick=()=>background.open();bgBox.append(bgRow,bgOpen);
 body.append(versionNote,floatBox,bgBox,actions);header.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const expanded=body.style.display==='none';body.style.display=expanded?'block':'none';header.setAttribute('aria-expanded',String(expanded));arrow.classList.toggle('down',!expanded)});section.append(header,body);host.append(section);sortSettings()}
 function mount(){if(document.getElementById(ID))return;root=document.createElement('div');root.id=ID;root.dataset.ttMobileSurface='free-window';ball=document.createElement('button');ball.id='dw2-lt-btn';ball.textContent='little';ball.setAttribute('aria-label','悬浮收纳');tray=document.createElement('div');tray.id='dw2-lt-tray';tray.hidden=true;root.append(tray,ball);document.body.append(root);if(!state.side)state.side=state.x>innerWidth/2?'left':'right';position();mountSettings();let start=null,moved=false;ball.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY,ry:state.y};moved=false;try{ball.setPointerCapture(e.pointerId)}catch{}});ball.addEventListener('pointermove',e=>{if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.hypot(dx,dy)>7)moved=true;if(moved){state.y=Math.max(12,Math.min(innerHeight-52,start.ry-dy));root.style.transform='translateX(0)';root.style.left=Math.max(0,Math.min(innerWidth-28,e.clientX-14))+'px';root.style.right='auto';root.dataset.dragging='true';root.style.bottom=state.y+'px'}});ball.addEventListener('pointerup',e=>{start=null;root.removeAttribute('data-dragging');if(moved)snap(e.clientX);else position()});ball.addEventListener('pointercancel',()=>{start=null;root.removeAttribute('data-dragging');position()});ball.onclick=()=>{if(moved){moved=false;return}open=!open;render()};window.addEventListener('resize',()=>position());document.addEventListener('pointerdown',globalDown,true);document.addEventListener('pointermove',globalMove,true);document.addEventListener('pointerup',globalUp,true);document.addEventListener('pointercancel',globalUp,true);observer=new MutationObserver(()=>{clearTimeout(scanTimer);scanTimer=setTimeout(()=>{mountMagicMenu();for(const i of state.items){const el=resolve(i);if(valid(el))hide(el)}},150)});observer.observe(document.body,{childList:true,subtree:true});let attempts=0;const retry=()=>{if(!root)return;mountSettings();mountMagicMenu();if(++attempts<120)setTimeout(retry,500)};retry();sync();mountMagicMenu();background.init()}
-function unmount(){background.stop();observer?.disconnect();clearTimeout(scanTimer);document.removeEventListener('pointerdown',globalDown,true);document.removeEventListener('pointermove',globalMove,true);document.removeEventListener('pointerup',globalUp,true);document.removeEventListener('pointercancel',globalUp,true);restoreAll();document.getElementById('dw2-lt-magic-entry')?.remove();document.getElementById('dw2-lt-bg-magic-entry')?.remove();root?.remove();root=null}
+function unmount(){closeFloorPanel();background.stop();observer?.disconnect();clearTimeout(scanTimer);document.removeEventListener('pointerdown',globalDown,true);document.removeEventListener('pointermove',globalMove,true);document.removeEventListener('pointerup',globalUp,true);document.removeEventListener('pointercancel',globalUp,true);restoreAll();document.getElementById('dw2-lt-magic-entry')?.remove();document.getElementById('dw2-lt-bg-magic-entry')?.remove();document.getElementById('dw2-lt-floor-magic-entry')?.remove();root?.remove();root=null}
 window.DW2LittleThings={enable:mount,disable:unmount,detect:()=>candidates().map(el=>({selector:selector(el),rect:rect(el).toJSON?.()})),restore:()=>{state.items=[];restoreAll();save();render()}};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
