@@ -337,7 +337,7 @@ function openFloorPanel(){
   if(typeof execute!=='function'){
    error.textContent='当前 TT 未提供楼层操作接口，请检查版本。';return;
   }
-  busy=true;submit.disabled=true;cancel.disabled=true;submit.textContent='处理中…';error.textContent='';
+  busy=true;submit.disabled=true;cancel.disabled=true;close.disabled=true;submit.textContent='处理中…';error.textContent='';
   try{
    const result=await execute('/'+mode+' '+parsed.range,{
     handleParserErrors:false,handleExecutionErrors:false,source:'dw2-little-things-floor'
@@ -348,7 +348,7 @@ function openFloorPanel(){
   }catch(ex){
    error.textContent='操作失败：'+String(ex?.message||ex);
   }finally{
-   busy=false;submit.disabled=false;cancel.disabled=false;
+   busy=false;submit.disabled=false;cancel.disabled=false;close.disabled=false;
    if(floorPanel===overlay)submit.textContent=mode==='hide'?'确认隐藏':'确认恢复';
   }
  }
