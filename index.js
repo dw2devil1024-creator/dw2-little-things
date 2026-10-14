@@ -297,7 +297,7 @@ function protectedFloorMessage(message,index){
  if(index===0||!message||message.is_system===true)return true;
  const body=String(message.mes||'');
  // Protect structured summary records. No arbitrary guess about text quality.
- return /<abstract(?:\s[^>]*)?>|[✦☆]\s*大总结\b|大总结\s*第\s*\d+|总结范围[：:]/iu.test(body);
+ return /<abstract(?:\s[^>]*)?>|[✦☆]\s*大总结|大总结\s*第\s*\d+|总结范围[：:]/iu.test(body);
 }
 function planAutoFloorRanges(chat,keep){
  if(!Array.isArray(chat)||!Number.isSafeInteger(keep)||keep<10)return [];
