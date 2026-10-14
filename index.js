@@ -318,6 +318,16 @@ function planAutoFloorRanges(chat,keep){
  if(boundary<=1)return [];
  return collectFloorRanges(chat,1,boundary,(message,i)=>!protectedFloorMessage(message,i));
 }
+function inspectAutoFloorWindow(chat,keep){
+ if(!Array.isArray(chat)||!Number.isSafeInteger(keep)||keep<10)return null;
+ const first=Math.max(1,chat.length-keep),last=chat.length-1;
+ const owned=[],untracked=[];
+ for(let i=first;i<chat.length;i++){
+  if(chat[i]?.is_system!==true)continue;
+  (isAutoFloorOwned(chat[i])?owned:untracked).push(i);
+ }
+ return {total:chat.length,first,last,owned,untracked};
+}
 function planAutoFloorRestoreRanges(chat,keep){
  if(!Array.isArray(chat)||!Number.isSafeInteger(keep)||keep<10)return [];
  const boundary=Math.max(1,chat.length-keep);
@@ -368,6 +378,7 @@ async function runAutoFloor(){
  const key=autoFloorChatKey(ctx);
  if(!key||!Array.isArray(ctx?.chat)||!ctx.chat.length)return;
  const originalChat=ctx.chat;
+ const plannedLength=originalChat.length;
  // Reconcile first: deletion, swipe replacement or a larger retention window
  // can bring already auto-hidden messages back into the visible context window.
  const restore=planAutoFloorRestoreRanges(originalChat,currentFloorKeep())
@@ -384,6 +395,7 @@ async function runAutoFloor(){
    if(!state.autoFloorEnabled||!root||autoFloorGeneration)break;
    const live=globalThis.SillyTavern?.getContext?.();
    if(live?.chat!==originalChat||autoFloorChatKey(live)!==key)break;
+   if(originalChat.length!==plannedLength){scheduleAutoFloor(900);break;}
    const messages=originalChat.slice(operation.start,operation.end+1);
    if(messages.length!==operation.end-operation.start+1||
       messages.some((message,i)=>!message||originalChat[operation.start+i]!==message))break;
@@ -401,7 +413,7 @@ async function runAutoFloor(){
      throw new Error('TT 未能确认自动楼层操作完成');
    }catch(error){undo();throw error;}
   }
-  if(operations.length>maxPerPass&&state.autoFloorEnabled)scheduleAutoFloor(1400);
+  if(state.autoFloorEnabled&&(operations.length>maxPerPass||originalChat.length!==plannedLength))scheduleAutoFloor(1400);
  }catch(err){
   console.warn('[DW2 Little Things] Auto floor adjustment stopped:',err);
   state.autoFloorEnabled=false;save();
@@ -578,7 +590,34 @@ function openFloorPanel(){
   else{clearTimeout(autoFloorTimer);autoFloorTimer=0;}
  };
  showAuto();
- autoBox.append(autoHead,autoHint,keepOptions,customWrap,autoStatus);
+ const inspector=document.createElement('div');inspector.className='dw2-lt-floor-inspector';
+ const inspectorBtn=document.createElement('button');inspectorBtn.type='button';
+ inspectorBtn.className='dw2-lt-floor-inspect-btn';
+ inspectorBtn.textContent='检查当前聊天的保留范围';
+ const inspectorResult=document.createElement('p');
+ inspectorResult.className='dw2-lt-floor-inspector-result';
+ inspectorResult.setAttribute('aria-live','polite');
+ function checkCurrentWindow(){
+  const snapshot=globalThis.SillyTavern?.getContext?.();
+  const report=inspectAutoFloorWindow(snapshot?.chat,currentFloorKeep());
+  if(!report||!report.total){
+   inspectorResult.textContent='请先打开一份有记录的聊天。';
+   return;
+  }
+  const {total,first,last,owned,untracked}=report;
+  const protectedRange=first<=last?first+'～'+last:'无';
+  const list=xs=>xs.length>16?xs.slice(0,16).join('、')+' 等 '+xs.length+' 层':xs.join('、');
+  let message='当前 '+total+' 条消息（0～'+last+'）；最新 '+currentFloorKeep()+' 层应保留：'+protectedRange+'。\n';
+  message+='范围内新版自动隐藏未回补：'+owned.length+' 条'+(owned.length?'（'+list(owned)+'）':'')+'。\n';
+  message+='范围内无归属标记的隐藏：'+untracked.length+' 条'+(untracked.length?'（'+list(untracked)+'）':'')+'。';
+  if(untracked.length)message+='\n这些可能是旧版残留，也可能是手动隐藏。请核对后用下方「💫 恢复楼层」处理；插件不会私自恢复。';
+  else if(owned.length)message+='\n如已开启自动隐藏，请等一秒再检查；持续未恢复可尝试切换聊天后重新检查。';
+  else message+='\n当前保留范围内没有异常隐藏。';
+  inspectorResult.textContent=message;
+ }
+ inspectorBtn.onclick=checkCurrentWindow;
+ inspector.append(inspectorBtn,inspectorResult);
+ autoBox.append(autoHead,autoHint,keepOptions,customWrap,autoStatus,inspector);
  dialog.append(head,intro,autoBox,options,caption,input,rangeHint,error,actions);
  overlay.append(dialog);
  overlay.addEventListener('click',e=>{if(e.target===overlay&&!busy)closeFloorPanel();});
