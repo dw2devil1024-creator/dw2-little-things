@@ -687,3 +687,23 @@
   color:#fff!important;-webkit-text-fill-color:#fff!important;
   box-shadow:none!important;font-size:16px!important;
 }
+
+
+/* v0.6.8 · Read-only live diagnostics for retention boundaries. */
+#dw2-lt-floor-panel .dw2-lt-floor-inspector{
+ display:flex;flex-direction:column;gap:7px;
+ margin-top:2px;padding-top:10px;
+ border-top:1px solid rgba(235,239,245,.16);
+}
+#dw2-lt-floor-panel .dw2-lt-floor-inspect-btn{
+ min-height:37px!important;padding:7px 12px!important;
+ width:100%!important;font-size:11px!important;
+ border-color:rgba(209,231,241,.43)!important;
+ background:linear-gradient(120deg,rgba(192,221,235,.15),rgba(244,212,224,.08))!important;
+}
+#dw2-lt-floor-panel .dw2-lt-floor-inspector-result{
+ margin:0;white-space:pre-wrap;overflow-wrap:anywhere;
+ color:rgba(245,244,247,.82);
+ font-size:11px;line-height:1.78;
+}
+#dw2-lt-floor-panel .dw2-lt-floor-inspector-result:empty{display:none;}
