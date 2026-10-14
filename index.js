@@ -285,6 +285,7 @@ function closeFloorPanel(){
 // Automated floor retention is opt-in. It changes only TT's own prompt context
 // exclusion flag via /hide, not the chat content or on-screen messages.
 let autoFloorTimer=0,autoFloorRunning=false,autoFloorGeneration=false,autoFloorEvents=[];
+const AUTO_FLOOR_MARK='dw2LittleThingsAutoHidden';
 function currentFloorKeep(){
  return state.autoFloorMode==='custom'?state.autoFloorCustom:50;
 }
@@ -293,26 +294,66 @@ function autoFloorChatKey(ctx){
  const participant=ctx?.groupId?('group:'+ctx.groupId):('character:'+ctx?.characterId);
  return id&&participant!=='character:undefined'&&participant!=='character:null'?participant+'/'+id:'';
 }
+function isAutoFloorOwned(message){
+ return message?.extra?.[AUTO_FLOOR_MARK]===true;
+}
 function protectedFloorMessage(message,index){
  if(index===0||!message||message.is_system===true)return true;
  const body=String(message.mes||'');
- // Protect structured summary records. No arbitrary guess about text quality.
  return /<abstract(?:\s[^>]*)?>|[✦☆]\s*大总结|大总结\s*第\s*\d+|总结范围[：:]/iu.test(body);
+}
+function collectFloorRanges(chat,start,end,eligible){
+ const ranges=[];let first=-1;
+ for(let i=start;i<end;i++){
+  const yes=eligible(chat[i],i);
+  if(yes&&first<0)first=i;
+  if(!yes&&first>=0){ranges.push({start:first,end:i-1});first=-1;}
+ }
+ if(first>=0)ranges.push({start:first,end:end-1});
+ return ranges;
 }
 function planAutoFloorRanges(chat,keep){
  if(!Array.isArray(chat)||!Number.isSafeInteger(keep)||keep<10)return [];
  const boundary=chat.length-keep;
  if(boundary<=1)return [];
- const ranges=[];let start=-1;
- for(let i=1;i<=boundary;i++){
-  const eligible=i<boundary&&!protectedFloorMessage(chat[i],i);
-  if(eligible&&start<0)start=i;
-  if(!eligible&&start>=0){
-   ranges.push({start,end:i-1});
-   start=-1;
+ return collectFloorRanges(chat,1,boundary,(message,i)=>!protectedFloorMessage(message,i));
+}
+function planAutoFloorRestoreRanges(chat,keep){
+ if(!Array.isArray(chat)||!Number.isSafeInteger(keep)||keep<10)return [];
+ const boundary=Math.max(1,chat.length-keep);
+ return collectFloorRanges(chat,boundary,chat.length,
+  message=>message?.is_system===true&&isAutoFloorOwned(message));
+}
+// Ownership follows message.extra, not the ordinal position in the chat list.
+// TT's native /hide and /unhide call saveChatConditional; make the marker change
+// BEFORE the native command so it is saved with that same chat write.
+function changeAutoFloorOwnership(messages,owned){
+ const changed=[];
+ for(const message of messages){
+  if(!message||typeof message!=='object')continue;
+  const existing=message.extra&&typeof message.extra==='object'?message.extra:null;
+  const hadExtra=!!existing;
+  const extra=existing||(owned?(message.extra={}):null);
+  if(!extra)continue;
+  const hadFlag=Object.prototype.hasOwnProperty.call(extra,AUTO_FLOOR_MARK);
+  const previous=extra[AUTO_FLOOR_MARK];
+  if(owned){
+   if(message.is_system===true)continue;
+   extra[AUTO_FLOOR_MARK]=true;
+  }else{
+   if(!hadFlag)continue;
+   delete extra[AUTO_FLOOR_MARK];
   }
+  changed.push({message,extra,hadExtra,hadFlag,previous});
  }
- return ranges;
+ return ()=>{
+  for(const {message,extra,hadExtra,hadFlag,previous} of changed){
+   if(message.extra!==extra)continue;
+   if(hadFlag)extra[AUTO_FLOOR_MARK]=previous;
+   else delete extra[AUTO_FLOOR_MARK];
+   if(!hadExtra&&!Object.keys(extra).length)delete message.extra;
+  }
+ };
 }
 function scheduleAutoFloor(ms=800){
  clearTimeout(autoFloorTimer);
@@ -327,29 +368,44 @@ async function runAutoFloor(){
  const key=autoFloorChatKey(ctx);
  if(!key||!Array.isArray(ctx?.chat)||!ctx.chat.length)return;
  const originalChat=ctx.chat;
- const ranges=planAutoFloorRanges(originalChat,currentFloorKeep());
- if(!ranges.length)return;
+ // Reconcile first: deletion, swipe replacement or a larger retention window
+ // can bring already auto-hidden messages back into the visible context window.
+ const restore=planAutoFloorRestoreRanges(originalChat,currentFloorKeep())
+  .map(range=>({ ...range,action:'unhide' }));
+ const hide=planAutoFloorRanges(originalChat,currentFloorKeep())
+  .map(range=>({ ...range,action:'hide' }));
+ const operations=[...restore,...hide];
+ if(!operations.length)return;
  if(typeof ctx.executeSlashCommandsWithOptions!=='function')return;
  autoFloorRunning=true;
  try{
-  // Bound the work per pass for chats with many protected summary islands.
-  for(const range of ranges.slice(0,12)){
+  const maxPerPass=12;
+  for(const operation of operations.slice(0,maxPerPass)){
    if(!state.autoFloorEnabled||!root||autoFloorGeneration)break;
    const live=globalThis.SillyTavern?.getContext?.();
    if(live?.chat!==originalChat||autoFloorChatKey(live)!==key)break;
-   const cmd='/hide '+(range.start===range.end?range.start:range.start+'-'+range.end);
-   const result=await live.executeSlashCommandsWithOptions(cmd,{
-    handleParserErrors:false,handleExecutionErrors:false,source:'dw2-little-things-auto-floor'
-   });
-   if(!result||result.isAborted||originalChat[range.start]?.is_system!==true)
-    throw new Error('TT 未能确认楼层已隐藏');
+   const messages=originalChat.slice(operation.start,operation.end+1);
+   if(messages.length!==operation.end-operation.start+1||
+      messages.some((message,i)=>!message||originalChat[operation.start+i]!==message))break;
+   // Another listener might have changed the chat while this task was queued.
+   if(operation.action==='unhide'&&messages.some(m=>!isAutoFloorOwned(m)||m.is_system!==true))continue;
+   if(operation.action==='hide'&&messages.some(m=>m.is_system===true))continue;
+   const undo=changeAutoFloorOwnership(messages,operation.action==='hide');
+   const cmd='/'+operation.action+' '+(operation.start===operation.end?operation.start:operation.start+'-'+operation.end);
+   try{
+    const result=await live.executeSlashCommandsWithOptions(cmd,{
+     handleParserErrors:false,handleExecutionErrors:false,source:'dw2-little-things-auto-floor'
+    });
+    const expected=operation.action==='hide';
+    if(!result||result.isAborted||messages.some(m=>m.is_system!==expected))
+     throw new Error('TT 未能确认自动楼层操作完成');
+   }catch(error){undo();throw error;}
   }
-  if(ranges.length>12&&state.autoFloorEnabled)scheduleAutoFloor(1400);
+  if(operations.length>maxPerPass&&state.autoFloorEnabled)scheduleAutoFloor(1400);
  }catch(err){
-  // Never repeatedly retry and mutate a chat after a failed command.
-  console.warn('[DW2 Little Things] Auto floor hide stopped:',err);
+  console.warn('[DW2 Little Things] Auto floor adjustment stopped:',err);
   state.autoFloorEnabled=false;save();
-  notify('自动隐藏已暂停：'+String(err?.message||err),'warning');
+  notify('自动隐藏/回补已暂停：'+String(err?.message||err),'warning');
  }finally{autoFloorRunning=false;}
 }
 function bindAutoFloorEvents(){
@@ -437,7 +493,12 @@ function openFloorPanel(){
   if(typeof execute!=='function'){
    error.textContent='当前 TT 未提供楼层操作接口，请检查版本。';return;
   }
+  if(autoFloorRunning){error.textContent='自动楼层任务正在运行，请稍后再操作。';return;}
   busy=true;submit.disabled=true;cancel.disabled=true;close.disabled=true;submit.textContent='处理中…';error.textContent='';
+  const manualTargets=live.chat.slice(parsed.start,parsed.end+1);
+  // Explicit manual actions relinquish auto ownership. Leave native TT as the
+  // only authority for whether a message is ultimately hidden.
+  const undoManual=changeAutoFloorOwnership(manualTargets,false);
   try{
    const result=await execute('/'+mode+' '+parsed.range,{
     handleParserErrors:false,handleExecutionErrors:false,source:'dw2-little-things-floor'
@@ -446,6 +507,7 @@ function openFloorPanel(){
    closeFloorPanel();
    notify((mode==='hide'?'已执行隐藏':'已执行恢复')+'楼层 '+parsed.range+'；可在 TT 聊天中确认效果。','success');
   }catch(ex){
+   undoManual();
    error.textContent='操作失败：'+String(ex?.message||ex);
   }finally{
    busy=false;submit.disabled=false;cancel.disabled=false;close.disabled=false;
