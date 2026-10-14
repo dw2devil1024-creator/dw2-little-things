@@ -341,7 +341,8 @@ async function runAutoFloor(){
    const result=await live.executeSlashCommandsWithOptions(cmd,{
     handleParserErrors:false,handleExecutionErrors:false,source:'dw2-little-things-auto-floor'
    });
-   if(!result||result.isAborted)throw new Error('TT 未完成隐藏操作');
+   if(!result||result.isAborted||originalChat[range.start]?.is_system!==true)
+    throw new Error('TT 未能确认楼层已隐藏');
   }
   if(ranges.length>12&&state.autoFloorEnabled)scheduleAutoFloor(1400);
  }catch(err){
@@ -357,9 +358,10 @@ function bindAutoFloorEvents(){
  const bus=ctx?.eventSource,types=ctx?.eventTypes||ctx?.event_types;
  if(!bus?.on||!types)return;
  for(const [name,listener] of [
-  ['CHAT_CHANGED',()=>scheduleAutoFloor(1100)],
+  ['CHAT_CHANGED',()=>{autoFloorGeneration=false;scheduleAutoFloor(1100);}],
   ['GENERATION_STARTED',()=>{autoFloorGeneration=true;}],
   ['GENERATION_ENDED',()=>{autoFloorGeneration=false;scheduleAutoFloor(1100);}],
+  ['GENERATION_STOPPED',()=>{autoFloorGeneration=false;scheduleAutoFloor(1100);} ],
   ['MESSAGE_RECEIVED',()=>scheduleAutoFloor(1300)],
   ['MESSAGE_DELETED',()=>scheduleAutoFloor(1100)]
  ]){
@@ -461,7 +463,7 @@ function openFloorPanel(){
  const autoTitle=document.createElement('span');autoTitle.textContent='自动隐藏旧楼层';
  autoHead.append(autoCheck,autoTitle);
  const autoHint=document.createElement('p');autoHint.className='dw2-lt-floor-auto-hint';
- autoHint.textContent='默认关闭。开启后自动排除过旧消息；保留开场白和带总结标记的剧情大总结。';
+ autoHint.textContent='默认关闭。保留开场白和带标记的大总结；手动恢复旧楼层前请先关闭自动隐藏。';
  const keepOptions=document.createElement('div');keepOptions.className='dw2-lt-floor-keep-options';
  const keep50=document.createElement('button');keep50.type='button';keep50.textContent='保留最近 50 层';
  const keepCustom=document.createElement('button');keepCustom.type='button';keepCustom.textContent='自定义层数';
