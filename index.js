@@ -20,10 +20,27 @@ state.autoFloorCustom=Number.isSafeInteger(Number(state.autoFloorCustom))&&Numbe
 // ============================================================
 const background=(()=>{
  const STORE='st_bg_lite_v212',THEME_KEY='st_bg_lite_v212_panel_theme';
- const PANEL='dw2-lt-bg-panel',OVERLAY='dw2-lt-bg-overlay';
- let active=false,watch=0,currentKey='',preview=false,panel=null,geometryObserver=null,geometryTarget=null;
+ const PANEL='dw2-lt-bg-panel',ACTIVE_CLASS='dw2-lt-bg-tuned';
+ let active=false,watch=0,currentKey='',preview=false,panel=null;
  let values={bright:50,clarity:100},theme='night';
- const originalFilters=new Map();
+ // Only mutate this module's own CSS custom properties, preserving theme filters.
+ const tunedLayers=new Map();
+ function preserveLayer(el){
+  if(tunedLayers.has(el))return;
+  const read=name=>({value:el.style.getPropertyValue(name),priority:el.style.getPropertyPriority(name)});
+  tunedLayers.set(el,{alpha:read('--dw2-lt-bg-alpha'),blur:read('--dw2-lt-bg-backdrop'),classPresent:el.classList.contains(ACTIVE_CLASS)});
+ }
+ function restoreTunedLayers(){
+  for(const [el,old] of tunedLayers){
+   for(const [key,name] of [['alpha','--dw2-lt-bg-alpha'],['blur','--dw2-lt-bg-backdrop']]){
+    const saved=old[key];
+    if(saved.value)el.style.setProperty(name,saved.value,saved.priority);
+    else el.style.removeProperty(name);
+   }
+   if(!old.classPresent)el.classList.remove(ACTIVE_CLASS);
+  }
+  tunedLayers.clear();
+ }
  try{theme=localStorage.getItem(THEME_KEY)==='day'?'day':'night'}catch{}
  const byId=id=>document.getElementById(id);
  const clamp=n=>Math.max(0,Math.min(100,Number.isFinite(Number(n))?Number(n):50));
@@ -52,55 +69,16 @@ const background=(()=>{
    localStorage.setItem(STORE,JSON.stringify(all));
   }catch{}
  }
- function ensureOverlay(){
-  const anchor=byId('bg2')||byId('bg1');
-  if(!anchor)return null;
-  let node=byId(OVERLAY);
-  if(!node){node=document.createElement('div');node.id=OVERLAY}
-  if(node.previousElementSibling!==anchor)anchor.after(node);
-  return node;
- }
- // TT 2.4.0 positions #bg1 using native window geometry, not 100vh.
- // Mirror the *rendered* wallpaper bounds; TT keeps --tt-window-* on #bg1 only.
- // A narrow attribute observer tracks native window inset/size changes without
- // watching the entire chat DOM or changing the background image itself.
- function syncOverlayBounds(){
-  const overlay=byId(OVERLAY),wallpaper=byId('bg1')||byId('bg2');
-  if(!active||!overlay||!wallpaper)return;
-  const rect=wallpaper.getBoundingClientRect();
-  if(!(rect.width>0&&rect.height>0))return;
-  const fields={
-   '--dw2-lt-bg-left':rect.left,
-   '--dw2-lt-bg-top':rect.top,
-   '--dw2-lt-bg-width':rect.width,
-   '--dw2-lt-bg-height':rect.height,
-  };
-  for(const [name,value] of Object.entries(fields)){
-   const pixels=value+'px';
-   if(overlay.style.getPropertyValue(name)!==pixels)overlay.style.setProperty(name,pixels);
-  }
- }
- function observeWallpaperBounds(){
-  const wallpaper=byId('bg1')||byId('bg2');
-  if(wallpaper===geometryTarget)return;
-  geometryObserver?.disconnect();
-  geometryTarget=wallpaper;
-  if(wallpaper&&typeof MutationObserver!=='undefined'){
-   geometryObserver=new MutationObserver(syncOverlayBounds);
-   geometryObserver.observe(wallpaper,{attributes:true,attributeFilter:['class','style']});
-  }
- }
- function handleWindowGeometry(){
-  if(!active)return;
-  observeWallpaperBounds();
-  syncOverlayBounds();
- }
- function keepNeutralFilter(){
+ // Tint within #bg1's own geometry, which TT 2.4 sizes to its native window.
+ // A separate fixed div could be clipped at the WebView / safe-area boundary.
+ function applyWallpaperEffects(){
+  const alpha=preview?0:(100-values.bright)/100;
+  const blur=preview?0:(100-values.clarity)*0.15;
   for(const el of layers()){
-   if(!originalFilters.has(el))originalFilters.set(el,{
-    value:el.style.getPropertyValue('filter'),priority:el.style.getPropertyPriority('filter')
-   });
-   el.style.setProperty('filter','blur(0px)');
+   preserveLayer(el);
+   el.style.setProperty('--dw2-lt-bg-alpha',String(alpha));
+   el.style.setProperty('--dw2-lt-bg-backdrop',blur>0?'blur('+blur+'px)':'none');
+   el.classList.add(ACTIVE_CLASS);
   }
  }
  function updateControls(){
@@ -114,15 +92,7 @@ const background=(()=>{
  }
  function apply(){
   if(!active)return;
-  const layer=ensureOverlay();
-  if(layer){
-   syncOverlayBounds();
-   const alpha=preview?0:(100-values.bright)/100;
-   const blur=preview?0:(100-values.clarity)*0.15;
-   layer.style.setProperty('background-color','rgba(0, 0, 0, '+alpha+')');
-   layer.style.setProperty('--dw2-lt-bg-backdrop',blur>0?'blur('+blur+'px)':'none');
-  }
-  keepNeutralFilter();
+  applyWallpaperEffects();
   updateControls();
  }
  function resetIndicators(){
@@ -131,17 +101,13 @@ const background=(()=>{
   panel.querySelectorAll('.dw2-lt-bg-preset').forEach(el=>el.classList.remove('is-active'));
  }
  function readNewImage(){
-  handleWindowGeometry();
   const next=imageKey();
   if(next!==currentKey){
    currentKey=next;
    preview=false;load();resetIndicators();
-   byId(OVERLAY)?.remove();
    apply();
   }else{
-   const anchor=byId('bg2')||byId('bg1');
-   if(anchor&&(!byId(OVERLAY)||byId(OVERLAY).previousElementSibling!==anchor))apply();
-   else if(layers().some(el=>!originalFilters.has(el)))apply();
+   if(layers().some(el=>!tunedLayers.has(el)||!el.classList.contains(ACTIVE_CLASS)))apply();
   }
  }
  function legacyRunning(){
@@ -156,9 +122,6 @@ const background=(()=>{
   active=true;
   currentKey=imageKey();
   load();
-  observeWallpaperBounds();
-  window.addEventListener('resize',handleWindowGeometry,{passive:true});
-  window.addEventListener('tt-window-changed',handleWindowGeometry);
   apply();
   watch=window.setInterval(()=>{if(active&&document.visibilityState!=='hidden')readNewImage()},1500);
   return true;
@@ -166,18 +129,8 @@ const background=(()=>{
  function stop(){
   active=false;
   if(watch){clearInterval(watch);watch=0}
-  window.removeEventListener('resize',handleWindowGeometry);
-  window.removeEventListener('tt-window-changed',handleWindowGeometry);
-  geometryObserver?.disconnect();geometryObserver=null;geometryTarget=null;
   panel?.remove();panel=null;
-  byId(OVERLAY)?.remove();
-  for(const [el,record] of originalFilters){
-   if(el.isConnected&&el.style.getPropertyValue('filter')==='blur(0px)'&&!el.style.getPropertyPriority('filter')){
-    if(record.value)el.style.setProperty('filter',record.value,record.priority);
-    else el.style.removeProperty('filter');
-   }
-  }
-  originalFilters.clear();
+  restoreTunedLayers();
   preview=false;
  }
  function saveEnabled(flag){
@@ -741,7 +694,7 @@ function mountSettings(){
  header.append(title,arrow);
  const body=document.createElement('div');body.className='inline-drawer-content';body.style.display='none';
  const versionNote=document.createElement('p');versionNote.className='dw2-lt-version-note';
- versionNote.textContent='独立模块开关 · 悬浮收纳 · 背景调节 · 楼层操作 · v0.7.1';
+ versionNote.textContent='独立模块开关 · 悬浮收纳 · 背景调节 · 楼层操作 · v0.7.2';
  const floatBox=document.createElement('div');floatBox.className='dw2-lt-module-box';
  const floatRow=document.createElement('label');floatRow.className='dw2-lt-switch';
  const floatCheck=document.createElement('input');floatCheck.type='checkbox';
