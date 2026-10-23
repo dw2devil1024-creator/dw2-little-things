@@ -61,11 +61,18 @@
    Keep native range inputs, all existing IDs and effect logic unchanged.
    Only #dw2-lt-bg-panel is styled; its background effect overlay remains isolated. */
 
+/* TT 2.4.0: mirror the native wallpaper (#bg1) bounds, including
+   window insets. Geometry custom properties are updated by the background
+   module; 100vw/100vh are no longer reliable full-window dimensions. */
 #dw2-lt-bg-overlay {
   position: fixed !important;
-  inset: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  inset: auto !important;
+  left: var(--dw2-lt-bg-left, 0px) !important;
+  top: var(--dw2-lt-bg-top, 0px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: var(--dw2-lt-bg-width, 100vw) !important;
+  height: var(--dw2-lt-bg-height, 100vh) !important;
   pointer-events: none !important;
   background: rgba(0, 0, 0, .5);
   backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
