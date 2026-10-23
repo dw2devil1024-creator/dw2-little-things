@@ -121,10 +121,10 @@ const background=(()=>{
   x.fillStyle=getComputedStyle(document.body).backgroundColor;x.fillRect(0,0,1,1);
   return [...x.getImageData(0,0,1,1).data].slice(0,3);
  }
- async function publishNative(api,path,size='cover',position='50% 50%'){
+ async function publishNative(api,path,size='cover',position='50% 50%',overrideColor=null){
   if(!api.snapshot)return;
   await api.invoke('set_window_backdrop',{request:{
-   windowRevision:api.snapshot.revision,color:bodyRGB(),
+   windowRevision:api.snapshot.revision,color:overrideColor||bodyRGB(),
    wallpaper:{resourcePath:path,size,position},
   }});
  }
@@ -194,7 +194,7 @@ const background=(()=>{
    return;
   }
   if(bright===0){
-   await publishNative(api,null,spec.size,spec.position);
+   await publishNative(api,null,spec.size,spec.position,[0,0,0]);
    if(active&&ticket===nativeTicket)nativeLast=key;
    return;
   }
