@@ -81,6 +81,180 @@ const background=(()=>{
    el.classList.add(ACTIVE_CLASS);
   }
  }
+
+ // iOS TT 2.4 draws the safe area with UIKit UIImageViews outside the WebView.
+ // For iOS only, render a disposable tinted copy for TT's native backdrop API.
+ // Never replace the user's actual wallpaper, settings or original image.
+ const isIosHost=/iPhone|iPad|iPod/.test(navigator.userAgent)||
+  (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ const nativeTempKey='dw2-lt-ios-temp-previews';
+ let nativeTemp='',nativeTimer=0,nativeTicket=0,nativeLast='',nativeJobs=Promise.resolve(),nativeErrorShown=false;
+ function nativeTemps(){
+  try{return JSON.parse(localStorage.getItem(nativeTempKey)||'[]').filter(s=>typeof s==='string'&&/^__dw2_lt_ios_[a-z0-9_]+\.png$/.test(s)).slice(-12)}catch{return []}
+ }
+ function rememberNative(name){
+  try{localStorage.setItem(nativeTempKey,JSON.stringify([...new Set([...nativeTemps(),name])].slice(-12)))}catch{}
+ }
+ function forgetNative(name){
+  try{localStorage.setItem(nativeTempKey,JSON.stringify(nativeTemps().filter(x=>x!==name)))}catch{}
+ }
+ async function nativeApi(){
+  const invoke=window.__TAURI__?.core?.invoke;
+  if(typeof invoke!=='function')throw Error('TT iOS native bridge unavailable');
+  const [{getWindowSnapshot},{getBackgroundPath},{getRequestHeaders}]=await Promise.all([
+   import('../../../util/window-layout.js'),import('../../../backgrounds.js'),import('../../../script.js'),
+  ]);
+  return {invoke,snapshot:getWindowSnapshot(),getBackgroundPath,getRequestHeaders};
+ }
+ function bgSpec(){
+  const bg=byId('bg1');if(!bg)return null;
+  const s=getComputedStyle(bg),m=/^url\(["']?(.*?)["']?\)$/.exec(s.backgroundImage);
+  if(!m)return null;
+  const url=new URL(m[1],location.href);
+  if(url.origin!==location.origin)return null;
+  return {url:url.href,path:url.pathname,size:s.backgroundSize,position:s.backgroundPosition};
+ }
+ function bodyRGB(){
+  const c=document.createElement('canvas');c.width=c.height=1;
+  const x=c.getContext('2d');if(!x)return [0,0,0];
+  x.fillStyle='white';x.fillRect(0,0,1,1);
+  x.fillStyle=getComputedStyle(document.body).backgroundColor;x.fillRect(0,0,1,1);
+  return [...x.getImageData(0,0,1,1).data].slice(0,3);
+ }
+ async function publishNative(api,path,size='cover',position='50% 50%'){
+  if(!api.snapshot)return;
+  await api.invoke('set_window_backdrop',{request:{
+   windowRevision:api.snapshot.revision,color:bodyRGB(),
+   wallpaper:{resourcePath:path,size,position},
+  }});
+ }
+ async function deleteNativeTemp(api,name){
+  if(!name)return;
+  try{
+   const res=await fetch('/api/backgrounds/delete',{
+    method:'POST',headers:api.getRequestHeaders(),body:JSON.stringify({bg:name}),
+   });
+   if(!res.ok)throw Error('HTTP '+res.status);
+   forgetNative(name);
+  }catch(e){console.warn('[DW2 Little Things] iOS temp cleanup:',e)}
+ }
+ async function restoreNative(api){
+  const s=bgSpec();
+  await publishNative(api,s?.path||null,s?.size||'cover',s?.position||'50% 50%');
+ }
+ async function tintBlob(s,alpha,blur){
+  const response=await fetch(s.url,{cache:'no-store'});
+  if(!response.ok)throw Error('Wallpaper HTTP '+response.status);
+  const source=await response.blob();
+  let bmp=null,img=null,blobUrl='';
+  try{
+   if(typeof createImageBitmap==='function'){
+    try{bmp=await createImageBitmap(source)}catch{}
+   }
+   if(bmp)img=bmp;
+   else{
+    blobUrl=URL.createObjectURL(source);
+    img=await new Promise((resolve,reject)=>{
+     const el=new Image();
+     el.onload=()=>resolve(el);
+     el.onerror=()=>reject(Error('Wallpaper decode failed'));
+     el.src=blobUrl;
+    });
+   }
+   const w=img.width,h=img.height;
+   if(!w||!h)throw Error('Empty wallpaper');
+   const scale=Math.min(1,2048/Math.max(w,h));
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(w*scale));
+   canvas.height=Math.max(1,Math.round(h*scale));
+   const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas unavailable');
+   if(blur>0)ctx.filter='blur('+Math.max(.1,blur*scale).toFixed(2)+'px)';
+   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+   ctx.filter='none';
+   if(alpha>0){
+    ctx.globalCompositeOperation='source-atop';
+    ctx.fillStyle='rgba(0,0,0,'+alpha+')';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+   }
+   return await new Promise((resolve,reject)=>canvas.toBlob(
+    blob=>blob?resolve(blob):reject(Error('Wallpaper encode failed')),'image/png'));
+  }finally{bmp?.close?.();if(blobUrl)URL.revokeObjectURL(blobUrl)}
+ }
+ async function syncNative(ticket){
+  if(!active||ticket!==nativeTicket)return;
+  const api=await nativeApi();
+  if(!api.snapshot)return;
+  const spec=bgSpec();
+  const bright=preview?100:values.bright,clarity=preview?100:values.clarity;
+  const key=JSON.stringify([spec?.url,bright,clarity,api.snapshot.revision,spec?.size,spec?.position]);
+  if(key===nativeLast)return;
+  if(!spec||bright===100&&clarity===100){
+   await restoreNative(api);
+   if(active&&ticket===nativeTicket)nativeLast=key;
+   return;
+  }
+  if(bright===0){
+   await publishNative(api,null,spec.size,spec.position);
+   if(active&&ticket===nativeTicket)nativeLast=key;
+   return;
+  }
+  const blob=await tintBlob(spec,(100-bright)/100,(100-clarity)*.15);
+  if(!active||ticket!==nativeTicket)return;
+  if(!nativeTemp){
+   nativeTemp='__dw2_lt_ios_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10)+'.png';
+   rememberNative(nativeTemp);
+  }
+  const body=new FormData();
+  body.set('avatar',new File([blob],nativeTemp,{type:'image/png'}));
+  const response=await fetch('/api/backgrounds/upload',{
+   method:'POST',headers:api.getRequestHeaders({omitContentType:true}),body,
+  });
+  if(!response.ok)throw Error('Preview upload HTTP '+response.status);
+  const saved=(await response.text()).trim();
+  if(saved!==nativeTemp)throw Error('Preview storage returned an unexpected filename');
+  if(!active||ticket!==nativeTicket)return;
+  const path=new URL(api.getBackgroundPath(saved),location.href).pathname;
+  await publishNative(api,path,spec.size,spec.position);
+  if(active&&ticket===nativeTicket)nativeLast=key;
+ }
+ function queueNative(){
+  if(!isIosHost||!active)return;
+  nativeTicket++;nativeLast='';
+  if(nativeTimer)clearTimeout(nativeTimer);
+  const ticket=nativeTicket;
+  nativeTimer=window.setTimeout(()=>{
+   nativeTimer=0;
+   nativeJobs=nativeJobs.catch(()=>{}).then(()=>syncNative(ticket)).catch(e=>{
+    console.warn('[DW2 Little Things] native backdrop:',e);
+    if(active&&ticket===nativeTicket&&!nativeErrorShown){
+     nativeErrorShown=true;
+     notify('iOS 全屏背景同步失败，已安全关闭背景调节；原图与设置未修改。','warning');
+     disable();
+    }
+   });
+  },700);
+ }
+ async function cleanOldNativeTemps(){
+  if(!isIosHost)return;
+  try{
+   const api=await nativeApi();
+   for(const name of nativeTemps().filter(x=>x!==nativeTemp))await deleteNativeTemp(api,name);
+  }catch(e){console.warn('[DW2 Little Things] previous preview cleanup:',e)}
+ }
+ function stopNative(){
+  if(!isIosHost)return;
+  nativeTicket++;nativeLast='';
+  if(nativeTimer){clearTimeout(nativeTimer);nativeTimer=0}
+  window.removeEventListener('tt-window-changed',queueNative);
+  const saved=nativeTemp;nativeTemp='';
+  nativeJobs=nativeJobs.catch(()=>{}).then(async()=>{
+   try{
+    const api=await nativeApi();
+    await restoreNative(api);
+    await deleteNativeTemp(api,saved);
+   }catch(e){console.warn('[DW2 Little Things] native restore:',e)}
+  });
+ }
  function updateControls(){
   if(!panel)return;
   for(const [key,id] of [['bright','bright'],['clarity','clarity']]){
@@ -93,6 +267,7 @@ const background=(()=>{
  function apply(){
   if(!active)return;
   applyWallpaperEffects();
+  queueNative();
   updateControls();
  }
  function resetIndicators(){
@@ -120,6 +295,8 @@ const background=(()=>{
    return false;
   }
   active=true;
+  nativeErrorShown=false;
+  if(isIosHost){window.addEventListener('tt-window-changed',queueNative);cleanOldNativeTemps()}
   currentKey=imageKey();
   load();
   apply();
@@ -129,6 +306,7 @@ const background=(()=>{
  function stop(){
   active=false;
   if(watch){clearInterval(watch);watch=0}
+  stopNative();
   panel?.remove();panel=null;
   restoreTunedLayers();
   preview=false;
@@ -694,7 +872,7 @@ function mountSettings(){
  header.append(title,arrow);
  const body=document.createElement('div');body.className='inline-drawer-content';body.style.display='none';
  const versionNote=document.createElement('p');versionNote.className='dw2-lt-version-note';
- versionNote.textContent='独立模块开关 · 悬浮收纳 · 背景调节 · 楼层操作 · v0.7.2';
+ versionNote.textContent='独立模块开关 · 悬浮收纳 · 背景调节 · 楼层操作 · v0.7.3-beta.1';
  const floatBox=document.createElement('div');floatBox.className='dw2-lt-module-box';
  const floatRow=document.createElement('label');floatRow.className='dw2-lt-switch';
  const floatCheck=document.createElement('input');floatCheck.type='checkbox';
