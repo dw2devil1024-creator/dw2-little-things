@@ -61,21 +61,15 @@
    Keep native range inputs, all existing IDs and effect logic unchanged.
    Only #dw2-lt-bg-panel is styled; its background effect overlay remains isolated. */
 
-/* Tint within the TT wallpaper, including the native window safe areas.
-   This eliminates the old independently clipped viewport-fixed overlay. */
-#bg1.dw2-lt-bg-tuned::after,
-#bg2.dw2-lt-bg-tuned::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
+#dw2-lt-bg-overlay {
+  position: fixed !important;
   inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  box-sizing: border-box !important;
+  width: 100vw !important;
+  height: 100vh !important;
   pointer-events: none !important;
-  background: rgba(0,0,0,var(--dw2-lt-bg-alpha,0)) !important;
-  backdrop-filter: var(--dw2-lt-bg-backdrop,none) !important;
-  -webkit-backdrop-filter: var(--dw2-lt-bg-backdrop,none) !important;
+  background: rgba(0, 0, 0, .5);
+  backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
+  -webkit-backdrop-filter: var(--dw2-lt-bg-backdrop, none) !important;
   transition: background-color .22s ease !important;
 }
 
